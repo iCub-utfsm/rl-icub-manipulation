@@ -29,7 +29,7 @@ class ICubEnvReaching(ICubEnv):
                          self.actuators_space.high - self.joints_margin)
         self.do_simulation(target, self.frame_skip)
         eef_pos_after_sim = self.env.physics.data.xpos[self.eef_id_xpos].copy()
-        done_limits = len(self.joints_out_of_range()) > 0
+        done_limits = False #len(self.joints_out_of_range()) > 0
         done_goal = self.goal_reached(eef_pos_after_sim)
         observation = self._get_obs()
         done_timesteps = self.steps >= self._max_episode_steps
