@@ -1089,8 +1089,10 @@ class ICubEnv(gym.Env):
             random_pos = self.state_space.sample()[self.joint_ids_objects]
             # Force z_objects > z_table and normalize quaternions
             for i in range(int(len(random_pos) / 7)):
-                random_pos[i * 7 + 2] = np.maximum(random_pos[i * 7 + 2],
-                                                   self.state_space.low[self.joint_ids_objects[i * 7 + 2]] + 0.1)
+                # random_pos[i * 7 + 2] = np.maximum(random_pos[i * 7 + 2],
+                                                #    self.state_space.low[self.joint_ids_objects[i * 7 + 2]] + 0.1)
+                random_pos[i * 7 + 2] = 1.2 + np.random.normal(loc=0, scale=0.2)
+
                 random_pos[i * 7 + 3:i * 7 + 7] /= np.linalg.norm(random_pos[i * 7 + 3:i * 7 + 7])
             self.init_qpos[self.joint_ids_objects] = random_pos
         if self.random_ycb_video_graspable_object:
@@ -1197,6 +1199,10 @@ class ICubEnv(gym.Env):
                     img = cv2.circle(img, com_uv, 5, (0, 255, 0), -1)
             images.append(img)
             cv2.imshow(cam, img[:, :, ::-1])
+            if cam == "front_cam":
+                cv2.moveWindow(cam, 100, 100)
+            elif cam == "head_cam":
+                cv2.moveWindow(cam, 800, 100)
             cv2.waitKey(1)
         return images
 
