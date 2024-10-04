@@ -24,7 +24,8 @@ class ICubEnvRefineGrasp(ICubEnv):
 
         self.init_icub_act_after_superquadrics = self.init_icub_act.copy()
         if self.grasp_planner == 'superquadrics':
-            self.superquadric_estimator = SuperquadricEstimator(self.pregrasp_distance_from_grasp_pose)
+            self.superquadric_estimator = "asasd"
+            # self.superquadric_estimator = SuperquadricEstimator(self.pregrasp_distance_from_grasp_pose)
         elif self.grasp_planner == 'vgn':
             self.vgn_estimator = VGNEstimator(self.pregrasp_distance_from_grasp_pose,
                                               self.joints_to_control_ik,
@@ -82,6 +83,8 @@ class ICubEnvRefineGrasp(ICubEnv):
                                            [2.58818979e-01, -9.65925844e-01, 1.37057067e-16, 0.013693832308330513],
                                            [0.00000000e+00, 0.00000000e+00, 0.00000000e+00, 1.000000000e+00]])
         self.inv_r_hand_to_r_hand_dh_frame = np.linalg.inv(np.array(self.r_hand_to_r_hand_dh_frame))
+
+        self.superq_pose = {"position": None, "quaternion": None}
 
     def step(self, action, increase_steps=True, pre_approach_phase=False):
         if self.control_gaze:
@@ -331,7 +334,9 @@ class ICubEnvRefineGrasp(ICubEnv):
                                self.env.physics.model.name2id(self.object_visual_mesh_name, 'geom'))
                 pcd_colors = np.concatenate((pcd, np.reshape(img, (int(img.size / 3), 3))), axis=1)[ids]
                 if self.grasp_planner == 'superquadrics':
-                    self.superq_pose = self.superquadric_estimator.compute_grasp_pose_superquadrics(pcd_colors)
+                    self.superq_pose["position"] = self.env.physics.data.qpos[self.joint_ids_objects[:3]]
+                    self.superq_pose["quaternion"] = self.env.physics.data.qpos[self.joint_ids_objects[3:]]
+                    # self.superq_pose = self.superquadric_estimator.compute_grasp_pose_superquadrics(pcd_colors)
                 elif self.grasp_planner == 'vgn':
                     ids_2d = np.where(segm[:, :, 0] == self.env.physics.model.name2id(self.object_visual_mesh_name,
                                                                                       'geom'))
@@ -513,42 +518,42 @@ class ICubEnvRefineGrasp(ICubEnv):
                 if self.reward_dist_original_superq_grasp_position:
                     self.prev_dist_superq_grasp_position = np.linalg.norm(
                         self.env.physics.named.data.xpos['r_hand_dh_frame'] - self.superq_pose['original_position'])
-                if self.pregrasp_distance_from_grasp_pose < 0.1:
-                    done = False
-                    while self.pre_approach_object_steps < self.pre_approach_object_max_steps and not done:
-                        action = np.concatenate([self.pre_approach_object(),
-                                                 np.zeros(len(self.actuators_to_control_fingers_ids))])
-                        _, _, done, _ = self.step(action=action, increase_steps=False, pre_approach_phase=True)
-                        self._get_obs()
-                    self.pre_approach_object_steps = 0
-                if self.approach_in_reset_model or self.curriculum_learning_approach_object:
-                    self.lfd_stage = 'approach_object'
-                    done = False
-                    while self.lfd_stage == 'approach_object' and not done:
-                        if self.curriculum_learning_approach_object and \
-                                self.total_steps < self.curriculum_learning_approach_object_start_step:
-                            if self.lfd_approach_object_step == self.lfd_approach_object_max_steps:
-                                self.lfd_stage = 'close_hand'
-                                self.lfd_approach_object_step = 0
-                                self.lfd_approach_position = None
-                                break
-                        elif self.curriculum_learning_approach_object and \
-                                self.total_steps < self.curriculum_learning_approach_object_end_step:
-                            if self.lfd_approach_object_step / self.lfd_approach_object_max_steps > \
-                                    1 - (self.total_steps - self.curriculum_learning_approach_object_start_step) / \
-                                    (self.curriculum_learning_approach_object_end_step
-                                     - self.curriculum_learning_approach_object_start_step):
-                                self.lfd_stage = 'close_hand'
-                                self.lfd_approach_object_step = 0
-                                self.lfd_approach_position = None
-                                break
-                        elif self.curriculum_learning_approach_object and \
-                                self.total_steps >= self.curriculum_learning_approach_object_end_step:
-                            self.lfd_stage = 'close_hand'
-                            self.lfd_approach_object_step = 0
-                            self.lfd_approach_position = None
-                            break
-                        _, _, done, _ = self.step(action=None, increase_steps=False)
+                # if self.pregrasp_distance_from_grasp_pose < 0.1:
+                #     done = False
+                #     while self.pre_approach_object_steps < self.pre_approach_object_max_steps and not done:
+                #         action = np.concatenate([self.pre_approach_object(),
+                #                                  np.zeros(len(self.actuators_to_control_fingers_ids))])
+                #         _, _, done, _ = self.step(action=action, increase_steps=False, pre_approach_phase=True)
+                #         self._get_obs()
+                #     self.pre_approach_object_steps = 0
+                # if self.approach_in_reset_model or self.curriculum_learning_approach_object:
+                #     self.lfd_stage = 'approach_object'
+                #     done = False
+                #     while self.lfd_stage == 'approach_object' and not done:
+                #         if self.curriculum_learning_approach_object and \
+                #                 self.total_steps < self.curriculum_learning_approach_object_start_step:
+                #             if self.lfd_approach_object_step == self.lfd_approach_object_max_steps:
+                #                 self.lfd_stage = 'close_hand'
+                #                 self.lfd_approach_object_step = 0
+                #                 self.lfd_approach_position = None
+                #                 break
+                #         elif self.curriculum_learning_approach_object and \
+                #                 self.total_steps < self.curriculum_learning_approach_object_end_step:
+                #             if self.lfd_approach_object_step / self.lfd_approach_object_max_steps > \
+                #                     1 - (self.total_steps - self.curriculum_learning_approach_object_start_step) / \
+                #                     (self.curriculum_learning_approach_object_end_step
+                #                      - self.curriculum_learning_approach_object_start_step):
+                #                 self.lfd_stage = 'close_hand'
+                #                 self.lfd_approach_object_step = 0
+                #                 self.lfd_approach_position = None
+                #                 break
+                #         elif self.curriculum_learning_approach_object and \
+                #                 self.total_steps >= self.curriculum_learning_approach_object_end_step:
+                #             self.lfd_stage = 'close_hand'
+                #             self.lfd_approach_object_step = 0
+                #             self.lfd_approach_position = None
+                #             break
+                #         _, _, done, _ = self.step(action=None, increase_steps=False)
             else:
                 # Initial reset, just need to return the observation
                 break
