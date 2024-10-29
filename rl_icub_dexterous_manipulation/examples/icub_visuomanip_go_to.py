@@ -7,7 +7,7 @@ sys.path.append("./rl-icub-dexterous-manipulation/rl_icub_dexterous_manipulation
 import numpy as np
 from rl_icub_dexterous_manipulation.envs.icub_visuomanip_reaching import ICubEnvReaching
 from rl_icub_dexterous_manipulation.envs.icub_visuomanip_gaze_control import ICubEnvGazeControl
-from rl_icub_dexterous_manipulation.envs.icub_visuomanip_refine_grasp import ICubEnvRefineGrasp
+from rl_icub_dexterous_manipulation.envs.icub_visuomanip_refine_grasp_goto import ICubEnvRefineGrasp
 from rl_icub_dexterous_manipulation.envs.icub_visuomanip_keep_grasp import ICubEnvKeepGrasp
 from rl_icub_dexterous_manipulation.envs.icub_visuomanip_lift_grasped_object import ICubEnvLiftGraspedObject
 from rl_icub_dexterous_manipulation.external.stable_baselines3_mod.sac import SAC
@@ -703,33 +703,36 @@ else:
     raise ValueError('The task specified as argument is not valid. Quitting.')
 
 if args.test_model:
-    # model = SAC.load(args.eval_dir + '/best_model.zip', env=iCub)
-    print("################################## INSIDE TEST ##################################")
-    obs = iCub.reset()
-    # images = []
-    # # Evaluate the agent
-    # episode_reward = 0
-    # while True:
-    #     # action, _ = model.predict(obs, deterministic=True)
-    #     action = iCub.action_space.sample()
-    #     obs, reward, done, info = iCub.step(action)
-    #     imgs = iCub.render()
-    #     if args.record_video:
-    #         images.append(imgs)
-    #     episode_reward += reward
-    #     if done:
-    #         break
-    # if args.record_video:
-    #     print('Recording video.')
-    #     for i in range(len(args.render_cameras)):
-    #         fourcc = cv2.VideoWriter_fourcc('m', 'p', '4', 'v')
-    #         if not os.path.exists(args.eval_dir):
-    #             os.makedirs(args.eval_dir)
-    #         writer = cv2.VideoWriter(args.eval_dir + '/{}.mp4'.format(args.render_cameras[i]), fourcc, 30, (640, 480))
-    #         for num_img, imgs in enumerate(images):
-    #             writer.write(imgs[i][:, :, ::-1])
-    #         writer.release()
-    # print("Reward:", episode_reward)
+    for i in range(8):
+        # model = SAC.load(args.eval_dir + '/best_model.zip', env=iCub)
+        print(f"######################## INSIDE TRIAL {i} ########################")
+        obs = iCub.reset()
+        images = []
+        # Evaluate the agent
+        episode_reward = 0
+        while True:
+            # action, _ = model.predict(obs, deterministic=True)
+            # action = iCub.action_space.sample()
+            # obs, reward, done, info = iCub.step(action)
+            obs, done, info = iCub.step_cartsolv()
+            imgs = iCub.render()
+            print(f'{info}')
+            if args.record_video:
+                images.append(imgs)
+            # episode_reward += reward
+            if done:
+                break
+        if args.record_video:
+            print('Recording video.')
+            for i in range(len(args.render_cameras)):
+                fourcc = cv2.VideoWriter_fourcc('m', 'p', '4', 'v')
+                if not os.path.exists(args.eval_dir):
+                    os.makedirs(args.eval_dir)
+                writer = cv2.VideoWriter(args.eval_dir + '/{}.mp4'.format(args.render_cameras[i]), fourcc, 30, (640, 480))
+                for num_img, imgs in enumerate(images):
+                    writer.write(imgs[i][:, :, ::-1])
+                writer.release()
+        # print("Reward:", episode_reward)
 elif args.fine_tune_model:
     model = SAC.load(args.pretrained_model_dir_fine_tuning + '/best_model.zip',
                      env=iCub,
