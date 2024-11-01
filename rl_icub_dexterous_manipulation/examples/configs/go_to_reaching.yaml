@@ -8,17 +8,22 @@ xml_model_path: "../models/icub_visuomanip_ikin_limits.xml"
 print_done_info: True
 icub_observation_space:
   - "joints"
-  - "touch"
+  # - "touch"
   # - "flare"
   - "cartesian"
   # - "superquadric_center"
   # - "pretrained_output"
+icub_action_space:
+  - "joints"
 obs_camera: "head_cam_track_hand"
 objects:
   - "005_tomato_soup_can"
 use_table: False
 task: "refine_grasp"
 training_components:
+  - "torso_pitch"
+  - "torso_yaw"
+  - "torso_roll"
   - "r_arm"
   # - "r_hand"
 joints_margin: 0.0
@@ -48,8 +53,8 @@ ik_components:
 # training_device: "cuda"
 # lift_object_height: 1.109
 # moved_object_height: 0.985
-# cartesian_components:
-#  - "all_ypr"
+cartesian_components:
+ - "all_ypr"
 # net_arch:
 #   - 2048
 #   - 2048

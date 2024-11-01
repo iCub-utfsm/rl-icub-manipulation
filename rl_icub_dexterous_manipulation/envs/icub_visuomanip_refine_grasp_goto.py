@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: 2023 Humanoid Sensing and Perception, Istituto Italiano di Tecnologia
 # SPDX-License-Identifier: BSD-3-Clause
 
-from rl_icub_dexterous_manipulation.envs.icub_visuomanip import ICubEnv
+from rl_icub_dexterous_manipulation.envs.icub_visuomanip_v2 import ICubEnv
 import numpy as np
 from rl_icub_dexterous_manipulation.utils.pcd_utils import pcd_from_depth, points_in_world_coord
 from rl_icub_dexterous_manipulation.utils.superquadrics_utils import SuperquadricEstimator
@@ -36,6 +36,8 @@ class ICubEnvRefineGrasp(ICubEnv):
         if self.control_gaze:
             self.gaze_controller = GazeController()
             self.fixation_point = self.objects_positions[0]
+
+        self.prev_target = None
 
         self.prev_obj_zpos = None
         self.reward_obj_height = True
@@ -185,79 +187,79 @@ class ICubEnvRefineGrasp(ICubEnv):
         # Set target w.r.t. current position for the controlled joints, while maintaining the initial position
         # for the other joints
         named_qpos = self.env.physics.named.data.qpos
-        if 'cartesian' in self.icub_observation_space and not self.use_only_right_hand_model:
-            self.target_ik[self.cartesian_ids] = self.target_ik[self.cartesian_ids] + action[:len(self.cartesian_ids)]
-            done_ik = False
-            if self.cartesian_orientation == 'ypr':
-                qy = Quaternion(axis=[0, 0, 1], angle=self.target_ik[3])
-                qp = Quaternion(axis=[0, 1, 0], angle=self.target_ik[4])
-                qr = Quaternion(axis=[1, 0, 0], angle=self.target_ik[5])
-                # https://github.com/KieranWynn/pyquaternion/blob/master/pyquaternion/quaternion.py#L1018
-                target_ik_pyquaternion = qr * qp * qy
-                target_ik_quaternion = target_ik_pyquaternion.q
-            else:
-                target_ik_quaternion = self.target_ik[3:7]
+        # if 'cartesian' in self.icub_observation_space and not self.use_only_right_hand_model:
+        #     self.target_ik[self.cartesian_ids] = self.target_ik[self.cartesian_ids] + action[:len(self.cartesian_ids)]
+        #     done_ik = False
+        #     if self.cartesian_orientation == 'ypr':
+        #         qy = Quaternion(axis=[0, 0, 1], angle=self.target_ik[3])
+        #         qp = Quaternion(axis=[0, 1, 0], angle=self.target_ik[4])
+        #         qr = Quaternion(axis=[1, 0, 0], angle=self.target_ik[5])
+        #         # https://github.com/KieranWynn/pyquaternion/blob/master/pyquaternion/quaternion.py#L1018
+        #         target_ik_pyquaternion = qr * qp * qy
+        #         target_ik_quaternion = target_ik_pyquaternion.q
+        #     else:
+        #         target_ik_quaternion = self.target_ik[3:7]
 
-            if self.ik_solver == 'idyntree':
-                ik_sol, solved = self.ik_idyntree.solve_ik(eef_pos=self.target_ik[:3],
-                                                           eef_quat=target_ik_quaternion,
-                                                           current_qpos=self.env.physics.named.data.qpos,
-                                                           desired_configuration=None)
-                if solved:
-                    if not self.ik_idyntree_reduced_model:
-                        qpos_ik = ik_sol[np.array(self.joints_to_control_ik_ids, dtype=np.int32)]
-                    else:
-                        qpos_ik = ik_sol
-                else:
-                    done_ik = True
-            elif self.ik_solver == 'ikin':
-                target_ik_pyquaternion = Quaternion(target_ik_quaternion)
-                target_ik_axis_angle = np.append(target_ik_pyquaternion.axis, target_ik_pyquaternion.angle)
-                ik_sol, solved = self.ik_ikin.solve_ik(eef_pos=self.target_ik[:3],
-                                                       eef_axis_angle=target_ik_axis_angle,
-                                                       current_qpos=self.env.physics.named.data.qpos,
-                                                       joints_to_control_ik_ids=self.joints_to_control_ik_ids)
-                if solved:
-                    qpos_ik = ik_sol
-                else:
-                    done_ik = True
-            else:
-                qpos_ik_result = ik.qpos_from_site_pose(physics=self.env.physics,
-                                                        site_name='r_hand_dh_frame_site',
-                                                        target_pos=self.target_ik[:3],
-                                                        target_quat=target_ik_quaternion,
-                                                        joint_names=self.joints_to_control_ik)
-                if qpos_ik_result.success:
-                    qpos_ik = qpos_ik_result.qpos[np.array(self.joints_to_control_ik_ids, dtype=np.int32)]
-                else:
-                    done_ik = True
-            # Use as action only the offsets for the joints to control (e.g. hands)
-            action = action[len(self.cartesian_ids):]
-        elif 'cartesian' in self.icub_observation_space and self.use_only_right_hand_model:
-            self.target_ik[self.cartesian_ids] = self.target_ik[self.cartesian_ids] + action[:len(self.cartesian_ids)]
-            done_ik = False
-            if self.cartesian_orientation == 'ypr':
-                qy = Quaternion(axis=[0, 0, 1], angle=self.target_ik[3])
-                qp = Quaternion(axis=[0, 1, 0], angle=self.target_ik[4])
-                qr = Quaternion(axis=[1, 0, 0], angle=self.target_ik[5])
-                # https://github.com/KieranWynn/pyquaternion/blob/master/pyquaternion/quaternion.py#L1018
-                target_ik_pyquaternion = qr * qp * qy
-                target_ik_quaternion = target_ik_pyquaternion.q
-            else:
-                target_ik_quaternion = self.target_ik[3:7]
+        #     if self.ik_solver == 'idyntree':
+        #         ik_sol, solved = self.ik_idyntree.solve_ik(eef_pos=self.target_ik[:3],
+        #                                                    eef_quat=target_ik_quaternion,
+        #                                                    current_qpos=self.env.physics.named.data.qpos,
+        #                                                    desired_configuration=None)
+        #         if solved:
+        #             if not self.ik_idyntree_reduced_model:
+        #                 qpos_ik = ik_sol[np.array(self.joints_to_control_ik_ids, dtype=np.int32)]
+        #             else:
+        #                 qpos_ik = ik_sol
+        #         else:
+        #             done_ik = True
+        #     elif self.ik_solver == 'ikin':
+        #         target_ik_pyquaternion = Quaternion(target_ik_quaternion)
+        #         target_ik_axis_angle = np.append(target_ik_pyquaternion.axis, target_ik_pyquaternion.angle)
+        #         ik_sol, solved = self.ik_ikin.solve_ik(eef_pos=self.target_ik[:3],
+        #                                                eef_axis_angle=target_ik_axis_angle,
+        #                                                current_qpos=self.env.physics.named.data.qpos,
+        #                                                joints_to_control_ik_ids=self.joints_to_control_ik_ids)
+        #         if solved:
+        #             qpos_ik = ik_sol
+        #         else:
+        #             done_ik = True
+        #     else:
+        #         qpos_ik_result = ik.qpos_from_site_pose(physics=self.env.physics,
+        #                                                 site_name='r_hand_dh_frame_site',
+        #                                                 target_pos=self.target_ik[:3],
+        #                                                 target_quat=target_ik_quaternion,
+        #                                                 joint_names=self.joints_to_control_ik)
+        #         if qpos_ik_result.success:
+        #             qpos_ik = qpos_ik_result.qpos[np.array(self.joints_to_control_ik_ids, dtype=np.int32)]
+        #         else:
+        #             done_ik = True
+        #     # Use as action only the offsets for the joints to control (e.g. hands)
+        #     action = action[len(self.cartesian_ids):]
+        # elif 'cartesian' in self.icub_observation_space and self.use_only_right_hand_model:
+        #     self.target_ik[self.cartesian_ids] = self.target_ik[self.cartesian_ids] + action[:len(self.cartesian_ids)]
+        #     done_ik = False
+        #     if self.cartesian_orientation == 'ypr':
+        #         qy = Quaternion(axis=[0, 0, 1], angle=self.target_ik[3])
+        #         qp = Quaternion(axis=[0, 1, 0], angle=self.target_ik[4])
+        #         qr = Quaternion(axis=[1, 0, 0], angle=self.target_ik[5])
+        #         # https://github.com/KieranWynn/pyquaternion/blob/master/pyquaternion/quaternion.py#L1018
+        #         target_ik_pyquaternion = qr * qp * qy
+        #         target_ik_quaternion = target_ik_pyquaternion.q
+        #     else:
+        #         target_ik_quaternion = self.target_ik[3:7]
 
-            superq_pose_transformation_matrix = Quaternion(target_ik_quaternion).transformation_matrix
-            superq_pose_transformation_matrix[:3, 3] = self.target_ik[:3]
+        #     superq_pose_transformation_matrix = Quaternion(target_ik_quaternion).transformation_matrix
+        #     superq_pose_transformation_matrix[:3, 3] = self.target_ik[:3]
 
-            superq_pose_r_hand = np.matmul(superq_pose_transformation_matrix, self.inv_r_hand_to_r_hand_dh_frame)
-            self.env.physics.named.data.mocap_pos['icub_r_hand_welding'] = superq_pose_r_hand[:3, 3]
-            self.env.physics.named.data.mocap_quat['icub_r_hand_welding'] = Quaternion(matrix=superq_pose_r_hand).q
-            # Use as action only the offsets for the joints to control (e.g. hands)
-            action = action[len(self.cartesian_ids):]
-            if superq_pose_r_hand[0, 3] <= -0.5 or superq_pose_r_hand[0, 3] >= 0 or \
-                    superq_pose_r_hand[1, 3] <= -0.3 or superq_pose_r_hand[1, 3] >= 0.5 or \
-                    superq_pose_r_hand[2, 3] <= 1.0 or superq_pose_r_hand[2, 3] >= 1.6:
-                done_ik = True
+        #     superq_pose_r_hand = np.matmul(superq_pose_transformation_matrix, self.inv_r_hand_to_r_hand_dh_frame)
+        #     self.env.physics.named.data.mocap_pos['icub_r_hand_welding'] = superq_pose_r_hand[:3, 3]
+        #     self.env.physics.named.data.mocap_quat['icub_r_hand_welding'] = Quaternion(matrix=superq_pose_r_hand).q
+        #     # Use as action only the offsets for the joints to control (e.g. hands)
+        #     action = action[len(self.cartesian_ids):]
+        #     if superq_pose_r_hand[0, 3] <= -0.5 or superq_pose_r_hand[0, 3] >= 0 or \
+        #             superq_pose_r_hand[1, 3] <= -0.3 or superq_pose_r_hand[1, 3] >= 0.5 or \
+        #             superq_pose_r_hand[2, 3] <= 1.0 or superq_pose_r_hand[2, 3] >= 1.6:
+        #         done_ik = True
         qpos_jnt_tendons = np.empty([0, ], dtype=np.float32)
         for actuator in self.actuators_to_control_dict:
             qpos_jnt_tendons = np.append(qpos_jnt_tendons,
@@ -272,43 +274,65 @@ class ICubEnvRefineGrasp(ICubEnv):
                          self.actuators_space.high - self.actuators_margin)
         if self.control_gaze:
             target[self.actuators_to_control_gaze_controller_ids] = np.reshape(neck_qpos.x, (3,))
-        if 'cartesian' in self.icub_observation_space and not self.use_only_right_hand_model:
-            if not done_ik:
-                target[self.actuators_to_control_ik_ids] = qpos_ik
+        # if 'cartesian' in self.icub_observation_space and not self.use_only_right_hand_model:
+        #     if not done_ik:
+        #         target[self.actuators_to_control_ik_ids] = qpos_ik
         self.prev_obj_zpos = self.env.physics.data.qpos[self.joint_ids_objects[2]]
         self.do_simulation(target, self.frame_skip, increase_steps=increase_steps)
         if self.done_if_joints_out_of_limits:
             done_limits = len(self.joints_out_of_range()) > 0
         else:
             done_limits = False
-        done_goal = self.goal_reached()
+        # done_goal = self.goal_reached()
         observation = self._get_obs()
         if self.number_of_contacts >= 2:
             self.already_touched_with_2_fingers = True
         if self.number_of_contacts == 5:
             self.already_touched_with_5_fingers = True
         done_timesteps = self.steps >= self._max_episode_steps
-        done_moved_object = self.moved_object()
-        if self.do_not_consider_done_z_pos:
-            done_z_pos = False
-        else:
-            done_z_pos = self.done_z_r_hand()
-        reward = self._get_reward(done_limits, done_goal, done_timesteps, done_moved_object, done_z_pos)
-        done_object_falling = self.falling_object() and self.use_table
-        done = done_limits or done_goal or done_timesteps or done_object_falling or done_moved_object or done_z_pos
+        # done_moved_object = self.moved_object()
+        # if self.do_not_consider_done_z_pos:
+        #     done_z_pos = False
+        # else:
+        #     done_z_pos = self.done_z_r_hand()
+        # reward = self._get_reward(done_limits, done_goal, done_timesteps, done_moved_object, done_z_pos)
+        # done_object_falling = self.falling_object() and self.use_table
+        # done = done_limits or done_goal or done_timesteps or done_object_falling or done_moved_object or done_z_pos
+        
+        done_goal = self.goal_reached(observation['joints'], self.qpos_sol_final_qpos[self.joints_to_control_ik_ids])
+
+        if self.prev_target is None:
+            self.prev_target = target
+
+        joints_low = self.state_space.low[self.joints_to_control_ids]
+        joints_high = self.state_space.high[self.joints_to_control_ids]
+        actuators_low = self.actuators_space.low
+        actuators_high = self.actuators_space.high
+
+        curr_joints_norm = self.min_max_normalization(observation['joints'], joints_low, joints_high)
+        obj_joints_norm = self.min_max_normalization(self.qpos_sol_final_qpos[self.joints_to_control_ik_ids], joints_low, joints_high)
+        curr_target_norm = self.min_max_normalization(target, actuators_low, actuators_high)
+        prev_target_norm = self.min_max_normalization(self.prev_target, actuators_low, actuators_high)
+        
+        reward = self._get_reward(curr_target_norm, prev_target_norm, curr_joints_norm, obj_joints_norm, done_goal, done_timesteps)
+        done = done_goal or done_timesteps
+        self.prev_action = action
+        
         info = {'Steps': self.steps,
                 'Done': {'timesteps': done_timesteps,
                          'goal_reached': done_goal,
-                         'limits exceeded': self.joints_out_of_range(),
-                         'object falling from the table': done_object_falling,
-                         'moved object': done_moved_object,
-                         'done z pos': done_z_pos},
+                        #  'limits exceeded': self.joints_out_of_range(),
+                        #  'object falling from the table': done_object_falling,
+                        #  'moved object': done_moved_object,
+                        #  'done z pos': done_z_pos
+                         },
+                'reward': reward,
                 'is_success': done_goal}
         if self.learning_from_demonstration and not pre_approach_phase:
             info['learning from demonstration action'] = action_lfd
-        if 'cartesian' in self.icub_observation_space:
-            done = done or done_ik
-            info['Done']['done IK'] = done_ik
+        # if 'cartesian' in self.icub_observation_space:
+        #     done = done or done_ik
+        #     info['Done']['done IK'] = done_ik
         if self.learning_from_demonstration and done:
             self.lfd_stage = 'close_hand' if not self.lfd_with_approach else 'approach_object'
             self.lfd_close_hand_step = 0
@@ -321,64 +345,95 @@ class ICubEnvRefineGrasp(ICubEnv):
             self.lfd_steps -= self.steps
         return observation, reward, done, info
     
-    def _get_reward(self, done_limits, done_goal, done_timesteps, done_moved_object, done_z_pos, done_ik=None):
-        if done_limits:
-            return self.reward_out_of_joints
+    def _get_reward(self, action, prev_action, joints, target_joints, done_goal, done_timesteps):
+        reward = 0
+        # Reached target pose
+        if done_goal:
+            return self.reward_goal
+        # Max episode timesteps reached
         if done_timesteps:
             return self.reward_end_timesteps
-        if done_moved_object:
-            if not self.high_negative_reward_approach_failures:
-                return -1
-            else:
-                if self.already_touched_with_2_fingers:
-                    return -1
-                else:
-                    return -100
-        if done_ik or done_z_pos:
-            return -1
-        reward = 0
-        reward += self.diff_num_contacts()
-        if self.reward_obj_height:
-            rew_height = (self.env.physics.data.qpos[self.joint_ids_objects[2]] - self.prev_obj_zpos) * 1000
-            # Add positive reward only if all fingers are in contact, add negative reward in any case
-            if (rew_height > 0 and self.number_of_contacts >= self.min_fingers_touching_object) or \
-                    (rew_height < 0 and self.already_touched_with_2_fingers):
-                if rew_height > 0 and self.scale_pos_lift_reward_wrt_touching_fingers:
-                    rew_height *= self.number_of_contacts / 5
-                reward += rew_height
-        if self.reward_dist_superq_center and not self.already_touched_with_2_fingers:
-            if self.rotated_dist_superq_center:
-                superq_center_in_dh_frame = self.point_in_r_hand_dh_frame(
-                    self.superq_pose['superq_center'], site_name='r_hand_dh_frame_site_rotated')
-            else:
-                superq_center_in_dh_frame = self.point_in_r_hand_dh_frame(self.superq_pose['superq_center'])
-            current_dist_superq_center = np.linalg.norm(superq_center_in_dh_frame[:2])
-            delta_dist_superq_center = self.prev_dist_superq_center - current_dist_superq_center
-            self.prev_dist_superq_center = current_dist_superq_center
-            reward += delta_dist_superq_center * 100
-        if self.reward_line_pregrasp_superq_center and not self.already_touched_with_2_fingers:
-            current_dist_line_superq_center = \
-                self.point_to_line_distance(self.env.physics.named.data.xpos['r_hand_dh_frame'],
-                                            self.superq_pose['superq_center'],
-                                            self.superq_pose['distanced_grasp_position'])
-            delta_dist_line_superq_center = self.prev_dist_line_superq_center - current_dist_line_superq_center
-            self.prev_dist_line_superq_center = current_dist_line_superq_center
-            reward += delta_dist_line_superq_center * 100
-        if self.reward_dist_original_superq_grasp_position and not self.already_touched_with_2_fingers:
-            current_dist_superq_grasp_position = np.linalg.norm(
-                self.env.physics.named.data.xpos['r_hand_dh_frame'] - self.superq_pose['original_position'])
-            delta_dist_superq_grasp_position = self.prev_dist_superq_grasp_position - current_dist_superq_grasp_position
-            self.prev_dist_superq_grasp_position = current_dist_superq_grasp_position
-            reward += delta_dist_superq_grasp_position * 100
-        if done_goal:
-            reward += self.reward_goal
+        # Current joint angles close to objective joints
+        penalty = 1.0 * sum(np.abs(target_joints - joints)) / len(joints)
+        reward += 0.5 * np.exp(-penalty)
+        # Action close to previous
+        penalty = 1.0 * sum(np.abs(prev_action - action)) / len(action)
+        reward += 0.5 * np.exp(-penalty)
+
         return reward
 
-    def goal_reached(self):
-        if self.goal_reached_only_with_lift_refine_grasp:
-            return self.lifted_object()
-        else:
-            return self.lifted_object() and self.number_of_contacts == 5
+    # def _get_reward(self, done_limits, done_goal, done_timesteps, done_moved_object, done_z_pos, done_ik=None):
+    #     if done_limits:
+    #         return self.reward_out_of_joints
+    #     if done_timesteps:
+    #         return self.reward_end_timesteps
+    #     if done_moved_object:
+    #         if not self.high_negative_reward_approach_failures:
+    #             return -1
+    #         else:
+    #             if self.already_touched_with_2_fingers:
+    #                 return -1
+    #             else:
+    #                 return -100
+    #     if done_ik or done_z_pos:
+    #         return -1
+    #     reward = 0
+    #     reward += self.diff_num_contacts()
+    #     if self.reward_obj_height:
+    #         rew_height = (self.env.physics.data.qpos[self.joint_ids_objects[2]] - self.prev_obj_zpos) * 1000
+    #         # Add positive reward only if all fingers are in contact, add negative reward in any case
+    #         if (rew_height > 0 and self.number_of_contacts >= self.min_fingers_touching_object) or \
+    #                 (rew_height < 0 and self.already_touched_with_2_fingers):
+    #             if rew_height > 0 and self.scale_pos_lift_reward_wrt_touching_fingers:
+    #                 rew_height *= self.number_of_contacts / 5
+    #             reward += rew_height
+    #     if self.reward_dist_superq_center and not self.already_touched_with_2_fingers:
+    #         if self.rotated_dist_superq_center:
+    #             superq_center_in_dh_frame = self.point_in_r_hand_dh_frame(
+    #                 self.superq_pose['superq_center'], site_name='r_hand_dh_frame_site_rotated')
+    #         else:
+    #             superq_center_in_dh_frame = self.point_in_r_hand_dh_frame(self.superq_pose['superq_center'])
+    #         current_dist_superq_center = np.linalg.norm(superq_center_in_dh_frame[:2])
+    #         delta_dist_superq_center = self.prev_dist_superq_center - current_dist_superq_center
+    #         self.prev_dist_superq_center = current_dist_superq_center
+    #         reward += delta_dist_superq_center * 100
+    #     if self.reward_line_pregrasp_superq_center and not self.already_touched_with_2_fingers:
+    #         current_dist_line_superq_center = \
+    #             self.point_to_line_distance(self.env.physics.named.data.xpos['r_hand_dh_frame'],
+    #                                         self.superq_pose['superq_center'],
+    #                                         self.superq_pose['distanced_grasp_position'])
+    #         delta_dist_line_superq_center = self.prev_dist_line_superq_center - current_dist_line_superq_center
+    #         self.prev_dist_line_superq_center = current_dist_line_superq_center
+    #         reward += delta_dist_line_superq_center * 100
+    #     if self.reward_dist_original_superq_grasp_position and not self.already_touched_with_2_fingers:
+    #         current_dist_superq_grasp_position = np.linalg.norm(
+    #             self.env.physics.named.data.xpos['r_hand_dh_frame'] - self.superq_pose['original_position'])
+    #         delta_dist_superq_grasp_position = self.prev_dist_superq_grasp_position - current_dist_superq_grasp_position
+    #         self.prev_dist_superq_grasp_position = current_dist_superq_grasp_position
+    #         reward += delta_dist_superq_grasp_position * 100
+    #     if done_goal:
+    #         reward += self.reward_goal
+    #     return reward
+
+    def goal_reached(self, current_joint_array, final_joint_array):
+        tolerance = 0.01
+        distance = np.linalg.norm(current_joint_array - final_joint_array)
+        return distance < tolerance
+    
+    # Option 1:
+    def min_max_normalization(self, joint_array, min_values, max_values):
+        normalized_array = (joint_array - min_values) / (max_values - min_values)
+        return normalized_array
+    # Option 2:
+    def standardization(joint_array, means, stds):
+        normalized_array = (joint_array - means) / stds
+        return normalized_array
+
+    # def goal_reached(self):
+    #     if self.goal_reached_only_with_lift_refine_grasp:
+    #         return self.lifted_object()
+    #     else:
+    #         return self.lifted_object() and self.number_of_contacts == 5
 
     def reset_model(self):
         grasp_found = False

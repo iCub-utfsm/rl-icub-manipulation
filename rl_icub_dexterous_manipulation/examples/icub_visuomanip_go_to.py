@@ -241,6 +241,11 @@ parser.add_argument('--icub_observation_space',
                          'grasp_type an integer value that describes the grasp type based on the initial grasp pose '
                          'and touch the tactile information. If you pass multiple argument, you will use a '
                          'MultiInputPolicy.')
+parser.add_argument('--icub_action_space',
+                    type=str,
+                    nargs='+',
+                    default='joints',
+                    help='TODO')
 parser.add_argument('--exclude_vertical_touches',
                     action='store_true',
                     help='Do not consider vertical contacts to compute the number of fingers touching an object.')
@@ -575,6 +580,7 @@ elif args.task == 'refine_grasp':
     iCub = ICubEnvRefineGrasp(model_path=args.xml_model_path,
                               initial_qpos_path=args.initial_qpos_path,
                               icub_observation_space=args.icub_observation_space,
+                              icub_action_space=args.icub_action_space,
                               obs_camera=args.obs_camera,
                               track_object=args.track_object,
                               eef_name=args.eef_name,
@@ -712,9 +718,9 @@ if args.test_model:
         episode_reward = 0
         while True:
             # action, _ = model.predict(obs, deterministic=True)
-            # action = iCub.action_space.sample()
-            # obs, reward, done, info = iCub.step(action)
-            obs, done, info = iCub.step_cartsolv()
+            action = iCub.action_space.sample()
+            obs, reward, done, info = iCub.step(action)
+            # obs, done, info = iCub.step_cartsolv()
             imgs = iCub.render()
             print(f'{info}')
             if args.record_video:
