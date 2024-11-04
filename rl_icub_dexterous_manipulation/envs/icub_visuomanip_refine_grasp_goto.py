@@ -13,6 +13,7 @@ from pyquaternion import Quaternion
 from rl_icub_dexterous_manipulation.utils.idyntree_ik import IDynTreeIK
 from rl_icub_dexterous_manipulation.utils.ikin_ik import IKinIK
 
+from dm_control import mujoco
 
 class ICubEnvRefineGrasp(ICubEnv):
 
@@ -87,6 +88,59 @@ class ICubEnvRefineGrasp(ICubEnv):
         self.inv_r_hand_to_r_hand_dh_frame = np.linalg.inv(np.array(self.r_hand_to_r_hand_dh_frame))
 
         self.superq_pose = {"position": None, "quaternion": None}
+
+    def _scene_callback(self, physics, scene):
+            # if scene.ngeom >= scene.maxgeom:
+            #     return
+            if scene.ngeom == self._ngeom:
+                scene.ngeom += 1
+            # initialise a new capsule, add it to the scene using mjv_connector
+            rgba = np.array((1,0,0,1),dtype=np.float32)
+            radius = np.array((0.01),dtype=np.float32)
+            point1 = self.init_qpos[self.joint_ids_objects[0:3]] #self.superq_pose['position']
+            point2 = np.array((1, 1, 1),dtype=np.float32) #self.superq_pose['position'] + np.array((0.1,0,0))
+            # mujoco.mjv_initGeom(scene.geoms[scene.ngeom-1],
+            #                     mujoco.mjtGeom.mjGEOM_SPHERE, 
+            #                     np.zeros(3),
+            #                     np.zeros(3), 
+            #                     np.eye(3).flatten(), 
+            #                     rgba)
+            # mat = np.ones(3)
+            # mujoco.mjv_makeConnector(scene.geoms[scene.ngeom-1],
+            #                     mujoco.mjtGeom.mjGEOM_SPHERE, 
+            #                     radius,
+            #                     point1[0], point1[1], point1[2], 
+            #                     mat[0],mat[1],mat[2]
+            #                     )
+            
+            if scene.ngeom >= scene.maxgeom:
+                raise RuntimeError(
+                    'Ran out of geoms. maxgeom: %d' %
+                    scene.maxgeom)
+            g = scene.geoms[scene.ngeom-1]
+            # default values.
+            g.dataid = -1
+            g.objtype = mujoco.mjtObj.mjOBJ_UNKNOWN
+            g.objid = -1
+            g.category = mujoco.mjtCatBit.mjCAT_DECOR
+            g.texid = -1
+            g.texuniform = 0
+            g.texrepeat[0] = 1
+            g.texrepeat[1] = 1
+            g.emission = 0
+            g.specular = 0.5
+            g.shininess = 0.5
+            g.reflectance = 0
+            g.type = mujoco.mjtGeom.mjGEOM_BOX
+            g.size[:] = np.ones(3) * 0.01
+            g.mat[:] = np.eye(3)
+            g.rgba[:] = rgba
+
+            setattr(g,'type', mujoco.mjtGeom.mjGEOM_SPHERE)
+            attr = getattr(g, 'pos')
+            attr[:] = point1.reshape(attr.shape)
+            
+            # scene.ngeom +=1
 
     def step_cartsolv(self):
         # target = self.init_icub_act_after_superquadrics.copy()
@@ -440,9 +494,18 @@ class ICubEnvRefineGrasp(ICubEnv):
         while not grasp_found:
             super().reset_model()
             if hasattr(self, 'superquadric_estimator') or hasattr(self, 'vgn_estimator'):
+                camera = mujoco.Camera(self.env.physics, 
+                                    height=480, 
+                                    width=640, 
+                                    camera_id=self.superquadrics_camera,)
                 self.init_icub_act_after_superquadrics = self.init_icub_act.copy()
-                img = self.env.physics.render(height=480, width=640, camera_id=self.superquadrics_camera)
-                depth = self.env.physics.render(height=480, width=640, camera_id=self.superquadrics_camera, depth=True)
+                # img = self.env.physics.render(height=480, width=640, camera_id=self.superquadrics_camera)
+                # depth = self.env.physics.render(height=480, width=640, camera_id=self.superquadrics_camera, depth=True)
+                # img = self.cam_dict[self.superquadrics_camera].render()
+                # depth = self.cam_dict[self.superquadrics_camera].render(depth=True)
+                img = camera.render()
+                depth = camera.render(depth=True)
+
                 pcd = pcd_from_depth(depth)
                 pcd[:, 2] = -pcd[:, 2]
                 cam_id = self.env.physics.model.name2id(self.superquadrics_camera, 'camera')
@@ -451,11 +514,14 @@ class ICubEnvRefineGrasp(ICubEnv):
                                             cam_xmat=np.reshape(self.env.physics.named.data.cam_xmat[cam_id, :],
                                                                 (3, 3)))
                 pcd[:, 2] -= 1.0
-                segm = self.env.physics.render(height=480, width=640, camera_id=self.superquadrics_camera,
-                                               segmentation=True)
-                ids = np.where(np.reshape(segm[:, :, 0], (segm[:, :, 0].size,)) ==
-                               self.env.physics.model.name2id(self.object_visual_mesh_name, 'geom'))
-                pcd_colors = np.concatenate((pcd, np.reshape(img, (int(img.size / 3), 3))), axis=1)[ids]
+                # segm = self.env.physics.render(height=480, width=640, camera_id=self.superquadrics_camera,
+                #                                segmentation=True)
+                # segm = self.cam_dict[self.superquadrics_camera].render(segmentation=True)
+                segm = camera.render(segmentation=True)
+
+                # ids = np.where(np.reshape(segm[:, :, 0], (segm[:, :, 0].size,)) ==
+                #                self.env.physics.model.name2id(self.object_visual_mesh_name, 'geom'))
+                # pcd_colors = np.concatenate((pcd, np.reshape(img, (int(img.size / 3), 3))), axis=1)[ids]
                 if self.grasp_planner == 'superquadrics':
                     self.superq_pose["position"] = self.env.physics.data.qpos[self.joint_ids_objects[:3]]
                     self.superq_pose["quaternion"] = self.env.physics.data.qpos[self.joint_ids_objects[3:]]
