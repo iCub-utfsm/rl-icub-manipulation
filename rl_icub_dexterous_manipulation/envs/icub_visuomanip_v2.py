@@ -17,6 +17,7 @@ from rl_icub_dexterous_manipulation.feature_extractors.images_depth_feature_extr
 from pyquaternion import Quaternion
 from rl_icub_dexterous_manipulation.external.stable_baselines3_mod.sac import SAC
 
+from dm_control import mujoco
 
 class ICubEnv(gym.Env):
 
@@ -152,6 +153,9 @@ class ICubEnv(gym.Env):
         self.world_entity = composer.ModelWrapperEntity(self.world)
         self.task = composer.NullTask(self.world_entity)
         self.env = composer.Environment(self.task)
+
+        # For visualization
+        self._ngeom = self.env.physics.model.ngeom
 
         # Set environment and task parameters
         self.icub_action_space = icub_action_space
@@ -661,10 +665,23 @@ class ICubEnv(gym.Env):
             self.pretrained_model = SAC.load(pretrained_model_dir + '/best_model.zip', buffer_size=1)
         self.prev_obs = None
 
+        # self.cam_dict = {}
+        # for cam in self.render_cameras:
+        #     if cam == "front_cam":
+        #         self.cam_dict[cam] = mujoco.Camera(self.env.physics, height=480, width=640, camera_id=cam, #max_geom=10000
+        #                     scene_callback=self.scene_callback)
+        #     else:
+        #         self.cam_dict[cam] = mujoco.Camera(self.env.physics, height=480, 
+        #                                          width=640, camera_id=cam, #max_geom=10000
+        #                     )
+            
         # Reset environment
         self.reset()
         self.env.reset()
         self.eef_pos = self.env.physics.data.xpos[self.eef_id_xpos].copy()
+
+    def _scene_callback(self, physics, scene):
+            raise NotImplementedError
 
     def _set_action_space(self):
         if 'cartesian' in self.icub_action_space: #self.icub_observation_space:
@@ -884,11 +901,17 @@ class ICubEnv(gym.Env):
 
     def _get_obs(self):
         self.render()
+        camera = mujoco.Camera(self.env.physics, 
+                                    height=480, 
+                                    width=640, 
+                                    camera_id=self.obs_camera)
         if len(self.icub_observation_space) > 1:
             obs = {}
             for space in self.icub_observation_space:
                 if space == 'camera':
-                    obs['camera'] = self.env.physics.render(height=480, width=640, camera_id=self.obs_camera)
+                    # obs['camera'] = self.env.physics.render(height=480, width=640, camera_id=self.obs_camera)
+                    # obs['camera'] = self.cam_dict[self.obs_camera].render()
+                    obs['camera'] = camera.render()
                 elif space == 'joints':
                     obs['joints'] = np.empty([0, ], dtype=np.float32)
                     named_qpos = self.env.physics.named.data.qpos
@@ -908,17 +931,24 @@ class ICubEnv(gym.Env):
                                                           (3, 3)), atol=1e-05).q))[self.cartesian_ids]
                 elif space == 'features':
                     if 'densefusion' in self.feature_extractor_model_name:
-                        obs['features'] = self.feature_extractor(self.env.physics.render(height=480,
-                                                                                         width=640,
-                                                                                         camera_id=self.obs_camera),
-                                                                 self.env.physics.render(height=480,
-                                                                                         width=640,
-                                                                                         camera_id=self.obs_camera,
-                                                                                         depth=True),
-                                                                 self.env.physics.render(height=480,
-                                                                                         width=640,
-                                                                                         camera_id=self.obs_camera,
-                                                                                         segmentation=True),
+                        obs['features'] = self.feature_extractor(
+                                                                 camera.render(),
+                                                                 camera.render(depth=True),
+                                                                 camera.render(segmentation=True),
+                                                                #  self.cam_dict[self.obs_camera].render(),
+                                                                #  self.cam_dict[self.obs_camera].render(depth=True),
+                                                                #  self.cam_dict[self.obs_camera].render(segmentation=True),
+                                                                #  self.env.physics.render(height=480,
+                                                                #                          width=640,
+                                                                #                          camera_id=self.obs_camera),
+                                                                #  self.env.physics.render(height=480,
+                                                                #                          width=640,
+                                                                #                          camera_id=self.obs_camera,
+                                                                #                          depth=True),
+                                                                #  self.env.physics.render(height=480,
+                                                                #                          width=640,
+                                                                #                          camera_id=self.obs_camera,
+                                                                #                          segmentation=True),
                                                                  self.env.physics.model.name2id(self.objects[0] +
                                                                                                 "/mesh_" +
                                                                                                 self.objects[0] +
@@ -926,9 +956,12 @@ class ICubEnv(gym.Env):
                                                                                                 'geom'))
 
                     else:
-                        obs['features'] = self.feature_extractor(self.env.physics.render(height=480,
-                                                                                         width=640,
-                                                                                         camera_id=self.obs_camera))
+                        obs['features'] = self.feature_extractor(
+                                                                # self.env.physics.render(height=480,
+                                                                #                          width=640,
+                                                                #                          camera_id=self.obs_camera)
+                                                                # self.cam_dict[self.obs_camera].render()
+                                                                camera.render())
                 elif space == 'touch':
                     self.compute_num_fingers_touching_object()
                     obs['touch'] = np.zeros(len(self.contact_geom_ids_fingers_meshes))
@@ -936,17 +969,24 @@ class ICubEnv(gym.Env):
                         obs['touch'][self.contact_geom_fingers_names.index(finger)] = 1.0
                 elif space == 'flare':
                     if 'densefusion' in self.feature_extractor_model_name:
-                        features = self.feature_extractor(self.env.physics.render(height=480,
-                                                                                  width=640,
-                                                                                  camera_id=self.obs_camera),
-                                                          self.env.physics.render(height=480,
-                                                                                  width=640,
-                                                                                  camera_id=self.obs_camera,
-                                                                                  depth=True),
-                                                          self.env.physics.render(height=480,
-                                                                                  width=640,
-                                                                                  camera_id=self.obs_camera,
-                                                                                  segmentation=True),
+                        features = self.feature_extractor(
+                                                        camera.render(),
+                                                        camera.render(depth=True),
+                                                        camera.render(segmentation=True),
+                                                        #   self.cam_dict[self.obs_camera].render(),
+                                                        #   self.cam_dict[self.obs_camera].render(depth=True),
+                                                        #   self.cam_dict[self.obs_camera].render(segmentation=True),
+                                                        #   self.env.physics.render(height=480,
+                                                        #                           width=640,
+                                                        #                           camera_id=self.obs_camera),
+                                                        #   self.env.physics.render(height=480,
+                                                        #                           width=640,
+                                                        #                           camera_id=self.obs_camera,
+                                                        #                           depth=True),
+                                                        #   self.env.physics.render(height=480,
+                                                        #                           width=640,
+                                                        #                           camera_id=self.obs_camera,
+                                                        #                           segmentation=True),
                                                           self.env.physics.model.name2id(self.objects[0] +
                                                                                          "/mesh_" +
                                                                                          self.objects[0] +
@@ -954,9 +994,12 @@ class ICubEnv(gym.Env):
                                                                                          'geom'))
 
                     else:
-                        features = self.feature_extractor(self.env.physics.render(height=480,
-                                                                                  width=640,
-                                                                                  camera_id=self.obs_camera))
+                        features = self.feature_extractor(
+                                                        # self.env.physics.render(height=480,
+                                                        #                           width=640,
+                                                        #                           camera_id=self.obs_camera)
+                                                        #  self.cam_dict[self.obs_camera].render()
+                                                        camera.render())
                     if self.steps == 0:
                         self.flare_features = [features,
                                                np.zeros(features.shape),
@@ -996,7 +1039,9 @@ class ICubEnv(gym.Env):
             self.prev_obs = obs
             return obs
         elif 'camera' in self.icub_observation_space and len(self.icub_observation_space) == 1:
-            return self.env.physics.render(height=480, width=640, camera_id=self.obs_camera)
+            # return self.env.physics.render(height=480, width=640, camera_id=self.obs_camera)
+            # return self.cam_dict[self.obs_camera].render()
+            return camera.render()
         elif 'joints' in self.icub_observation_space and len(self.icub_observation_space) == 1:
             obs = np.empty([0, ], dtype=np.float32)
             named_qpos = self.env.physics.named.data.qpos
@@ -1016,26 +1061,36 @@ class ICubEnv(gym.Env):
                                                                     (3, 3)), atol=1e-05).q))[self.cartesian_ids]
         elif 'features' in self.icub_observation_space and len(self.icub_observation_space) == 1:
             if 'densefusion' in self.feature_extractor_model_name:
-                features = self.feature_extractor(self.env.physics.render(height=480,
-                                                                          width=640,
-                                                                          camera_id=self.obs_camera),
-                                                  self.env.physics.render(height=480,
-                                                                          width=640,
-                                                                          camera_id=self.obs_camera,
-                                                                          depth=True),
-                                                  self.env.physics.render(height=480,
-                                                                          width=640,
-                                                                          camera_id=self.obs_camera,
-                                                                          segmentation=True),
+                features = self.feature_extractor(
+                                                camera.render(),
+                                                camera.render(depth=True),
+                                                camera.render(segmentation=True),
+                                                # self.cam_dict[self.obs_camera].render(),
+                                                # self.cam_dict[self.obs_camera].render(depth=True),
+                                                # self.cam_dict[self.obs_camera].render(segmentation=True),
+                                            #   self.env.physics.render(height=480,
+                                            #                           width=640,
+                                            #                           camera_id=self.obs_camera),
+                                            #   self.env.physics.render(height=480,
+                                            #                           width=640,
+                                            #                           camera_id=self.obs_camera,
+                                            #                           depth=True),
+                                            #   self.env.physics.render(height=480,
+                                            #                           width=640,
+                                            #                           camera_id=self.obs_camera,
+                                            #                           segmentation=True),
                                                   self.env.physics.model.name2id(self.objects[0] +
                                                                                  "/mesh_" +
                                                                                  self.objects[0] +
                                                                                  "_00_visual",
                                                                                  'geom'))
             else:
-                features = self.feature_extractor(self.env.physics.render(height=480,
-                                                                          width=640,
-                                                                          camera_id=self.obs_camera))
+                features = self.feature_extractor(
+                                                # self.env.physics.render(height=480,
+                                                #                           width=640,
+                                                #                           camera_id=self.obs_camera)
+                                                # self.cam_dict[self.obs_camera].render()
+                                                camera.render())
             return features
         elif 'touch' in self.icub_observation_space and len(self.icub_observation_space) == 1:
             self.compute_num_fingers_touching_object()
@@ -1045,26 +1100,36 @@ class ICubEnv(gym.Env):
             return obs
         elif 'flare' in self.icub_observation_space and len(self.icub_observation_space) == 1:
             if 'densefusion' in self.feature_extractor_model_name:
-                features = self.feature_extractor(self.env.physics.render(height=480,
-                                                                          width=640,
-                                                                          camera_id=self.obs_camera),
-                                                  self.env.physics.render(height=480,
-                                                                          width=640,
-                                                                          camera_id=self.obs_camera,
-                                                                          depth=True),
-                                                  self.env.physics.render(height=480,
-                                                                          width=640,
-                                                                          camera_id=self.obs_camera,
-                                                                          segmentation=True),
+                features = self.feature_extractor(
+                                                camera.render(),
+                                                camera.render(depth=True),
+                                                camera.render(segmentation=True),
+                                                # self.cam_dict[self.obs_camera].render(),
+                                                # self.cam_dict[self.obs_camera].render(depth=True),
+                                                # self.cam_dict[self.obs_camera].render(segmentation=True),
+                                            #   self.env.physics.render(height=480,
+                                            #                           width=640,
+                                            #                           camera_id=self.obs_camera),
+                                            #   self.env.physics.render(height=480,
+                                            #                           width=640,
+                                            #                           camera_id=self.obs_camera,
+                                            #                           depth=True),
+                                            #   self.env.physics.render(height=480,
+                                            #                           width=640,
+                                            #                           camera_id=self.obs_camera,
+                                            #                           segmentation=True),
                                                   self.env.physics.model.name2id(self.objects[0] +
                                                                                  "/mesh_" +
                                                                                  self.objects[0] +
                                                                                  "_00_visual",
                                                                                  'geom'))
             else:
-                features = self.feature_extractor(self.env.physics.render(height=480,
-                                                                          width=640,
-                                                                          camera_id=self.obs_camera))
+                features = self.feature_extractor(
+                                                # self.env.physics.render(height=480,
+                                                #                           width=640,
+                                                #                           camera_id=self.obs_camera)
+                                                # self.cam_dict[self.obs_camera].render()
+                                                camera.render())
             if self.steps == 0:
                 self.flare_features = [features,
                                        np.zeros(features.shape),
@@ -1205,7 +1270,16 @@ class ICubEnv(gym.Env):
         del mode  # Unused
         images = []
         for cam in self.render_cameras:
-            img = np.array(self.env.physics.render(height=480, width=640, camera_id=cam), dtype=np.uint8)
+            camera = mujoco.Camera(self.env.physics, 
+                                    height=480, 
+                                    width=640, 
+                                    camera_id=cam,
+                                    scene_callback=self._scene_callback)
+            
+            # img = np.array(self.env.physics.render(height=480, width=640, camera_id=cam), dtype=np.uint8)
+            # img = np.array(self.cam_dict[cam].render(), dtype=np.uint8)
+            img = np.array(camera.render(),dtype=np.uint8)
+
             if cam == 'head_cam' and self.render_objects_com:
                 objects_com_x_y_z = []
                 for i in range(int(len(self.joint_ids_objects) / 7)):
