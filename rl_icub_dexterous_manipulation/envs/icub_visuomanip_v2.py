@@ -1170,9 +1170,9 @@ class ICubEnv(gym.Env):
             random_pos = self.state_space.sample()[self.joint_ids_objects]
             # Force z_objects > z_table and normalize quaternions
             for i in range(int(len(random_pos) / 7)):
-                # random_pos[i * 7 + 2] = np.maximum(random_pos[i * 7 + 2],
-                                                #    self.state_space.low[self.joint_ids_objects[i * 7 + 2]] + 0.1)
-                random_pos[i * 7 + 2] = 1.2 + np.random.normal(loc=0, scale=0.2)
+                random_pos[i * 7 + 2] = np.maximum(random_pos[i * 7 + 2],
+                                                   self.state_space.low[self.joint_ids_objects[i * 7 + 2]] + 0.1)
+                # random_pos[i * 7 + 2] = 1.2 + np.random.normal(loc=0, scale=0.2)
 
                 random_pos[i * 7 + 3:i * 7 + 7] /= np.linalg.norm(random_pos[i * 7 + 3:i * 7 + 7])
             self.init_qpos[self.joint_ids_objects] = random_pos
