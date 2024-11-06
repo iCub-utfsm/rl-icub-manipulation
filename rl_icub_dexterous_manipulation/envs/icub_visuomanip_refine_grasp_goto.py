@@ -89,6 +89,10 @@ class ICubEnvRefineGrasp(ICubEnv):
 
         self.superq_pose = {"position": None, "quaternion": None}
 
+    @staticmethod
+    def make_env_constructor():
+        return lambda *args, **kwargs: ICubEnvRefineGrasp(*args, **kwargs)
+
     def _scene_callback(self, physics, scene):
             # if scene.ngeom >= scene.maxgeom:
             #     return
