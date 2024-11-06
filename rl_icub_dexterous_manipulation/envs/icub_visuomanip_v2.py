@@ -4,7 +4,7 @@
 import math
 from dm_control import composer, mjcf
 import os
-import gym
+import gymnasium as gym
 import numpy as np
 import cv2
 import yaml
