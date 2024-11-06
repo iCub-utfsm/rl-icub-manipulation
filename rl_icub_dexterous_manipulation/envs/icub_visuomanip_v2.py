@@ -684,6 +684,8 @@ class ICubEnv(gym.Env):
             raise NotImplementedError
 
     def _set_action_space(self):
+        # TODO: enable cartesian actions when needed
+        # TODO: set all bounds to [-1,1] range
         if 'cartesian' in self.icub_action_space: #self.icub_observation_space:
             low = np.array([])
             high = np.array([])
@@ -702,8 +704,8 @@ class ICubEnv(gym.Env):
                 low = np.append(low, -2 * self.max_delta_qpos)
                 high = np.append(high, 2 * self.max_delta_qpos)
             else:
-                low = np.append(low, -self.max_delta_qpos)
-                high = np.append(high, self.max_delta_qpos)
+                low = np.append(low, -1) #-self.max_delta_qpos
+                high = np.append(high, 1) #self.max_delta_qpos
         self.action_space = gym.spaces.Box(low=low.astype(np.float32),
                                            high=high.astype(np.float32),
                                            dtype=np.float32)
@@ -862,11 +864,16 @@ class ICubEnv(gym.Env):
         high = bounds[:, 1]
         self.actuators_space = gym.spaces.Box(low=low, high=high, dtype=np.float32)
 
-    def reset(self):
+    def reset(self, seed=None, options=None):
+        # https://gymnasium.farama.org/introduction/create_custom_env/#reset-function
+        # We need the following line to seed self.np_random
+        super().reset(seed=seed)
+
         self.total_steps += self.steps
         self.steps = 0
         ob = self.reset_model()
-        return ob
+        info={}
+        return ob, info
 
     # https://github.com/deepmind/dm_control/blob/master/dm_control/mujoco/engine.py
     def get_state(self):
@@ -917,18 +924,18 @@ class ICubEnv(gym.Env):
                     named_qpos = self.env.physics.named.data.qpos
                     for actuator in self.actuators_to_control_dict:
                         obs['joints'] = np.append(obs['joints'],
-                                                  np.sum(named_qpos[actuator['jnt']] * actuator['coeff']))
+                                                  np.sum(named_qpos[actuator['jnt']] * actuator['coeff'],dtype=np.float32))
                 elif space == 'cartesian':
                     if self.cartesian_orientation == 'ypr':
                         obs['cartesian'] = np.concatenate(
                             (self.env.physics.named.data.xpos[self.eef_name],
                              Quaternion(matrix=np.reshape(self.env.physics.named.data.xmat[self.eef_name],
-                                                          (3, 3)), atol=1e-05).yaw_pitch_roll))[self.cartesian_ids]
+                                                          (3, 3)), atol=1e-05).yaw_pitch_roll),dtype=np.float32)[self.cartesian_ids]
                     else:
                         obs['cartesian'] = np.concatenate(
                             (self.env.physics.named.data.xpos[self.eef_name],
                              Quaternion(matrix=np.reshape(self.env.physics.named.data.xmat[self.eef_name],
-                                                          (3, 3)), atol=1e-05).q))[self.cartesian_ids]
+                                                          (3, 3)), atol=1e-05).q),dtype=np.float32)[self.cartesian_ids]
                 elif space == 'features':
                     if 'densefusion' in self.feature_extractor_model_name:
                         obs['features'] = self.feature_extractor(

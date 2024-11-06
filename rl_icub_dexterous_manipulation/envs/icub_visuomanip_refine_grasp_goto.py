@@ -38,7 +38,7 @@ class ICubEnvRefineGrasp(ICubEnv):
             self.gaze_controller = GazeController()
             self.fixation_point = self.objects_positions[0]
 
-        self.prev_target = None
+        self.prev_action = None
 
         self.prev_obj_zpos = None
         self.reward_obj_height = True
@@ -211,6 +211,24 @@ class ICubEnvRefineGrasp(ICubEnv):
         return observation, done, info
 
     def step(self, action, increase_steps=True, pre_approach_phase=False):
+        
+        # Convert normalized actions from [-1,1] to [-self.max_delta_qpos, self.max_delta_qpos]
+        # TODO: Generalize scaling to not only joint actions
+        def map_values(source_value):
+            target_max = self.action_space.high * self.max_delta_qpos
+            target_min = self.action_space.low * self.max_delta_qpos
+            source_max = self.action_space.high
+            source_min = self.action_space.low
+            scale_factor = (target_max - target_min) / (source_max - source_min)
+            target_value = scale_factor * (source_value - source_min) + target_min
+            return target_value
+        
+        action = map_values(action)
+        current_action = action
+
+        if self.prev_action is None:
+            self.prev_action = current_action
+
         if self.control_gaze:
             neck_qpos = self.gaze_controller.gaze_control(self.fixation_point,
                                                           self.env.physics.named.data.qpos['neck_pitch'],
@@ -237,7 +255,9 @@ class ICubEnvRefineGrasp(ICubEnv):
         if 'pretrained_output' in self.prev_obs.keys() \
                 and not pre_approach_phase and not self.learning_from_demonstration:
             action += self.prev_obs['pretrained_output']
-        action = np.clip(action, self.action_space.low, self.action_space.high)
+        
+        action = np.clip(action, self.action_space.low * self.max_delta_qpos, \
+                                    self.action_space.high * self.max_delta_qpos)
         # Set target w.r.t. current position for the controlled joints, while maintaining the initial position
         # for the other joints
         named_qpos = self.env.physics.named.data.qpos
@@ -355,22 +375,25 @@ class ICubEnvRefineGrasp(ICubEnv):
         
         done_goal = self.goal_reached(observation['joints'], self.qpos_sol_final_qpos[self.joints_to_control_ik_ids])
 
-        if self.prev_target is None:
-            self.prev_target = target
-
         joints_low = self.state_space.low[self.joints_to_control_ids]
         joints_high = self.state_space.high[self.joints_to_control_ids]
-        actuators_low = self.actuators_space.low
-        actuators_high = self.actuators_space.high
+        actuators_low = self.actuators_space.low[self.actuators_to_control_ids]
+        actuators_high = self.actuators_space.high[self.actuators_to_control_ids]
 
         curr_joints_norm = self.min_max_normalization(observation['joints'], joints_low, joints_high)
         obj_joints_norm = self.min_max_normalization(self.qpos_sol_final_qpos[self.joints_to_control_ik_ids], joints_low, joints_high)
-        curr_target_norm = self.min_max_normalization(target, actuators_low, actuators_high)
-        prev_target_norm = self.min_max_normalization(self.prev_target, actuators_low, actuators_high)
+        curr_target_norm = self.min_max_normalization(current_action, actuators_low, actuators_high)
+        prev_target_norm = self.min_max_normalization(self.prev_action, actuators_low, actuators_high)
         
-        reward = self._get_reward(curr_target_norm, prev_target_norm, curr_joints_norm, obj_joints_norm, done_goal, done_timesteps)
+        # reward = self._get_reward(curr_target_norm, prev_target_norm, curr_joints_norm, obj_joints_norm, done_goal, done_timesteps)
+        reward = self._get_reward(current_action, 
+                                  self.prev_action, 
+                                  observation['joints'], 
+                                  self.qpos_sol_final_qpos[self.joints_to_control_ik_ids], 
+                                  done_goal, 
+                                  done_timesteps)
         done = done_goal or done_timesteps
-        self.prev_action = action
+        self.prev_action = current_action
         
         info = {'Steps': self.steps,
                 'Done': {'timesteps': done_timesteps,
@@ -382,22 +405,26 @@ class ICubEnvRefineGrasp(ICubEnv):
                          },
                 'reward': reward,
                 'is_success': done_goal}
-        if self.learning_from_demonstration and not pre_approach_phase:
-            info['learning from demonstration action'] = action_lfd
+        # if self.learning_from_demonstration and not pre_approach_phase:
+        #     info['learning from demonstration action'] = action_lfd
         # if 'cartesian' in self.icub_observation_space:
         #     done = done or done_ik
         #     info['Done']['done IK'] = done_ik
-        if self.learning_from_demonstration and done:
-            self.lfd_stage = 'close_hand' if not self.lfd_with_approach else 'approach_object'
-            self.lfd_close_hand_step = 0
-            self.lfd_approach_object_step = 0
+        # if self.learning_from_demonstration and done:
+        #     self.lfd_stage = 'close_hand' if not self.lfd_with_approach else 'approach_object'
+        #     self.lfd_close_hand_step = 0
+        #     self.lfd_approach_object_step = 0
         if done and self.print_done_info:
             print(info)
-        # Remove self.steps from self.lfd_steps to remove unsuccessful episode steps if required
-        if done and self.lfd_keep_only_successful_episodes and not info['is_success'] and \
-                self.lfd_steps <= self.learning_from_demonstration_max_steps:
-            self.lfd_steps -= self.steps
-        return observation, reward, done, info
+        # # Remove self.steps from self.lfd_steps to remove unsuccessful episode steps if required
+        # if done and self.lfd_keep_only_successful_episodes and not info['is_success'] and \
+        #         self.lfd_steps <= self.learning_from_demonstration_max_steps:
+        #     self.lfd_steps -= self.steps
+        
+        ### Adaptation to work with gymnasium API
+        terminated = done_goal
+        truncated = done_timesteps
+        return observation, reward, bool(terminated), truncated, info
     
     def _get_reward(self, action, prev_action, joints, target_joints, done_goal, done_timesteps):
         reward = 0
@@ -529,19 +556,19 @@ class ICubEnvRefineGrasp(ICubEnv):
                 elif self.grasp_planner == 'vgn':
                     ids_2d = np.where(segm[:, :, 0] == self.env.physics.model.name2id(self.object_visual_mesh_name,
                                                                                       'geom'))
-                    self.vgn_pose = \
-                        self.vgn_estimator.compute_grasp_pose_vgn(pcd_colors,
-                                                                  depth,
-                                                                  self.env.physics.named.data.cam_xpos[cam_id, :],
-                                                                  np.reshape(
-                                                                      self.env.physics.named.data.cam_xmat[cam_id, :],
-                                                                      (3, 3)),
-                                                                  ids_2d,
-                                                                  self.env.physics.named.data.qpos,
-                                                                  self.joints_to_control_ik_ids
-                                                                  )
+                    # self.vgn_pose = \
+                    #     self.vgn_estimator.compute_grasp_pose_vgn(pcd_colors,
+                    #                                               depth,
+                    #                                               self.env.physics.named.data.cam_xpos[cam_id, :],
+                    #                                               np.reshape(
+                    #                                                   self.env.physics.named.data.cam_xmat[cam_id, :],
+                    #                                                   (3, 3)),
+                    #                                               ids_2d,
+                    #                                               self.env.physics.named.data.qpos,
+                    #                                               self.joints_to_control_ik_ids
+                    #                                               )
 
-                    self.superq_pose = self.vgn_pose
+                    # self.superq_pose = self.vgn_pose
                 if self.superq_pose['position'][0] == 0.00:
                     print('Grasp pose not found. Resetting the environment.')
                     continue

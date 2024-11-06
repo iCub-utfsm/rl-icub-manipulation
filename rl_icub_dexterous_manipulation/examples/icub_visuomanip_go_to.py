@@ -712,21 +712,21 @@ if args.test_model:
     for i in range(8):
         # model = SAC.load(args.eval_dir + '/best_model.zip', env=iCub)
         print(f"######################## INSIDE TRIAL {i} ########################")
-        obs = iCub.reset()
+        obs = iCub.reset(seed=1)
         images = []
         # Evaluate the agent
         episode_reward = 0
         while True:
             # action, _ = model.predict(obs, deterministic=True)
             action = iCub.action_space.sample()
-            obs, reward, done, info = iCub.step(action)
+            obs, reward, terminated, truncated, info = iCub.step(action)
             # obs, done, info = iCub.step_cartsolv()
             imgs = iCub.render()
             print(f'{info}')
             if args.record_video:
                 images.append(imgs)
             # episode_reward += reward
-            if done:
+            if terminated or truncated:
                 break
         if args.record_video:
             print('Recording video.')
