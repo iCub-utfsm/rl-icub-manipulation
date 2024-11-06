@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: 2023 Humanoid Sensing and Perception, Istituto Italiano di Tecnologia
 # SPDX-License-Identifier: BSD-3-Clause
-test_model: True
-render_cameras: ["front_cam","head_cam"]
+test_model: False
+render_cameras: ["front_cam",] #["front_cam","head_cam"]
 record_video: False
 done_if_joints_out_of_limits: False
 xml_model_path: "../models/icub_visuomanip_ikin_limits.xml"
@@ -17,7 +17,7 @@ icub_action_space:
   - "joints"
 obs_camera: "head_cam_track_hand"
 objects:
-  - "005_tomato_soup_can"
+  - "005_tomato_soup_can" #"000_xyz_frame"
 use_table: False
 task: "refine_grasp"
 training_components:
@@ -43,21 +43,21 @@ eef_name: "r_hand_dh_frame"
 max_delta_qpos: 0.2
 max_delta_cartesian_rot: 0.01
 max_delta_cartesian_pos: 0.002
-eval_dir: "eval_dir/test/rng_reaching"
+eval_dir: "eval_dir/test/goto_reaching"
 # pretrained_model_dir: "eval_dir/pre_trained_models/gpayn_MSO_superquadrics_MAE"
 ik_components:
   - "torso_pitch"
   - "torso_yaw"
   - "torso_roll"
   - "r_arm"
-# training_device: "cuda"
+training_device: "cuda"
 # lift_object_height: 1.109
 # moved_object_height: 0.985
 cartesian_components:
  - "all_ypr"
-# net_arch:
-#   - 2048
-#   - 2048
+net_arch:
+  - 2048
+  - 2048
 # reward_dist_superq_center: True
 # learning_starts: 0
 distanced_superq_grasp_pose: False #True
@@ -67,7 +67,7 @@ distanced_superq_grasp_pose: False #True
 # pregrasp_distance_from_grasp_pose: 0.05
 ik_solver: "ikin"
 # do_not_consider_done_z_pos: True
-# total_training_timesteps: 1000000
+total_training_timesteps: 1000000
 # min_fingers_touching_object: 2
 # scale_pos_lift_reward_wrt_touching_fingers: True
 randomly_move_objects: True
@@ -79,4 +79,4 @@ limit_torso_pitch_ikin: True
 #  - 2048
 # gradient_steps: 10
 approach_in_reset_model: True
-random_initial_pos: True
+random_initial_pos: False

@@ -13,7 +13,6 @@ from rl_icub_dexterous_manipulation.envs.icub_visuomanip_lift_grasped_object imp
 from rl_icub_dexterous_manipulation.external.stable_baselines3_mod.sac import SAC
 import argparse
 import cv2
-import gym
 from rl_icub_dexterous_manipulation.external.stable_baselines3_mod.common.evaluation_bc import evaluate_policy_bc
 from stable_baselines3.common.save_util import load_from_pkl
 from imitation.algorithms import bc
@@ -26,6 +25,11 @@ from d3rlpy.models.encoders import VectorEncoderFactory
 from rl_icub_dexterous_manipulation.external.d3rlpy_mod.d3rlpy.online.buffers import ReplayBuffer
 import yaml
 
+import gymnasium as gym
+from gymnasium.wrappers import TimeLimit
+from stable_baselines3 import PPO
+from stable_baselines3.common.env_util import make_vec_env
+from stable_baselines3.common.vec_env import SubprocVecEnv, VecNormalize
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--cfg',
@@ -868,27 +872,140 @@ else:
               or 'touch' in args.icub_observation_space
               or 'flare' in args.icub_observation_space
               or 'pretrained_output' in args.icub_observation_space) and len(args.icub_observation_space) > 1:
-            model = SAC("MultiInputPolicy",
-                        iCub,
-                        verbose=1,
-                        tensorboard_log=args.tensorboard_dir,
-                        policy_kwargs=dict(net_arch=args.net_arch),
-                        train_freq=args.train_freq,
-                        gradient_steps=args.gradient_steps,
-                        ent_coef=args.ent_coef,
-                        learning_starts=args.learning_starts,
-                        create_eval_env=True,
-                        buffer_size=args.buffer_size,
-                        device=args.training_device,
-                        curriculum_learning=args.curriculum_learning,
-                        curriculum_learning_components=iCub.cartesian_actions_curriculum_learning,
-                        learning_from_demonstration=args.learning_from_demonstration,
-                        max_lfd_steps=args.max_lfd_steps,
-                        lfd_keep_only_successful_episodes=args.lfd_keep_only_successful_episodes,
-                        train_with_implicit_underparametrization_penalty=args.train_with_implicit_underparametrization_penalty,
-                        train_with_reptile=args.train_with_reptile,
-                        k_reptile=args.k_reptile,
-                        save_demonstrations_replay_buffers_per_object=args.save_demonstrations_replay_buffers_per_object)
+            # model = SAC("MultiInputPolicy",
+            #             iCub,
+            #             verbose=1,
+            #             tensorboard_log=args.tensorboard_dir,
+            #             policy_kwargs=dict(net_arch=args.net_arch),
+            #             train_freq=args.train_freq,
+            #             gradient_steps=args.gradient_steps,
+            #             ent_coef=args.ent_coef,
+            #             learning_starts=args.learning_starts,
+            #             create_eval_env=True,
+            #             buffer_size=args.buffer_size,
+            #             device=args.training_device,
+            #             curriculum_learning=args.curriculum_learning,
+            #             curriculum_learning_components=iCub.cartesian_actions_curriculum_learning,
+            #             learning_from_demonstration=args.learning_from_demonstration,
+            #             max_lfd_steps=args.max_lfd_steps,
+            #             lfd_keep_only_successful_episodes=args.lfd_keep_only_successful_episodes,
+            #             train_with_implicit_underparametrization_penalty=args.train_with_implicit_underparametrization_penalty,
+            #             train_with_reptile=args.train_with_reptile,
+            #             k_reptile=args.k_reptile,
+            #             save_demonstrations_replay_buffers_per_object=args.save_demonstrations_replay_buffers_per_object)
+            
+
+            # # Parallel environments
+            # iCub_id = ICubEnvRefineGrasp.make_env_constructor()
+            # task_kwargs = dict(
+            #     model_path=args.xml_model_path,
+            #     initial_qpos_path=args.initial_qpos_path,
+            #     icub_observation_space=args.icub_observation_space,
+            #     icub_action_space=args.icub_action_space,
+            #     obs_camera=args.obs_camera,
+            #     track_object=args.track_object,
+            #     eef_name=args.eef_name,
+            #     render_cameras=tuple(args.render_cameras),
+            #     reward_goal=args.reward_goal,
+            #     reward_out_of_joints=args.reward_out_of_joints,
+            #     reward_end_timesteps=args.reward_end_timesteps,
+            #     reward_single_step_multiplier=args.reward_single_step_multiplier,
+            #     reward_dist_superq_center=args.reward_dist_superq_center,
+            #     reward_line_pregrasp_superq_center=args.reward_line_pregrasp_superq_center,
+            #     reward_dist_original_superq_grasp_position=args.reward_dist_original_superq_grasp_position,
+            #     high_negative_reward_approach_failures=args.high_negative_reward_approach_failures,
+            #     rotated_dist_superq_center=args.rotated_dist_superq_center,
+            #     goal_reached_only_with_lift_refine_grasp=args.goal_reached_only_with_lift_refine_grasp,
+            #     exclude_vertical_touches=args.exclude_vertical_touches,
+            #     min_fingers_touching_object=args.min_fingers_touching_object,
+            #     scale_pos_lift_reward_wrt_touching_fingers=args.scale_pos_lift_reward_wrt_touching_fingers,
+            #     print_done_info=args.print_done_info,
+            #     random_ycb_video_graspable_object=args.random_ycb_video_graspable_object,
+            #     ycb_video_graspable_objects_config_path=args.ycb_video_graspable_objects_config_path,
+            #     random_mujoco_scanned_object=args.random_mujoco_scanned_object,
+            #     done_moved_object_mso_angle=args.done_moved_object_mso_angle,
+            #     mujoco_scanned_objects_config_path=args.mujoco_scanned_objects_config_path,
+            #     objects=args.objects,
+            #     use_table=args.use_table,
+            #     objects_positions=objects_positions,
+            #     objects_quaternions=objects_quaternions,
+            #     randomly_rotate_object_z_axis=args.randomly_rotate_object_z_axis,
+            #     randomly_move_objects=args.randomly_move_objects,
+            #     random_initial_pos=not args.fixed_initial_pos,
+            #     training_components=args.training_components,
+            #     ik_components=args.ik_components,
+            #     cartesian_components=args.cartesian_components,
+            #     joints_margin=args.joints_margin,
+            #     superquadrics_camera=args.superquadrics_camera,
+            #     feature_extractor_model_name=args.feature_extractor_model_name,
+            #     done_if_joints_out_of_limits=False,
+            #     do_not_consider_done_z_pos=args.do_not_consider_done_z_pos,
+            #     lift_object_height=args.lift_object_height,
+            #     moved_object_height=args.moved_object_height,
+            #     curriculum_learning=args.curriculum_learning,
+            #     curriculum_learning_approach_object=args.curriculum_learning_approach_object,
+            #     curriculum_learning_approach_object_start_step=args.curriculum_learning_approach_object_start_step,
+            #     curriculum_learning_approach_object_end_step=args.curriculum_learning_approach_object_end_step,
+            #     learning_from_demonstration=args.learning_from_demonstration,
+            #     max_lfd_steps=args.max_lfd_steps,
+            #     lfd_keep_only_successful_episodes=args.lfd_keep_only_successful_episodes,
+            #     lfd_with_approach=args.lfd_with_approach,
+            #     approach_in_reset_model=args.approach_in_reset_model,
+            #     pregrasp_distance_from_grasp_pose=args.pregrasp_distance_from_grasp_pose,
+            #     max_delta_qpos=args.max_delta_qpos,
+            #     max_delta_cartesian_pos=args.max_delta_cartesian_pos,
+            #     max_delta_cartesian_rot=args.max_delta_cartesian_rot,
+            #     distanced_superq_grasp_pose=args.distanced_superq_grasp_pose,
+            #     control_gaze=args.control_gaze,
+            #     ik_solver=args.ik_solver,
+            #     limit_torso_pitch_ikin=args.limit_torso_pitch_ikin,
+            #     use_only_right_hand_model=args.use_only_right_hand_model,
+            #     grasp_planner=args.grasp_planner,
+            #     pretrained_model_dir=args.pretrained_model_dir
+            # )
+            # env_kwargs = task_kwargs #dict(task_kwargs=task_kwargs)
+
+            # iCubVenv = make_vec_env(
+            #                 env_id=iCub_id, 
+            #                 env_kwargs=env_kwargs,
+            #                 n_envs=4,
+            #                 seed=1,
+            #                 start_index=0,
+            #                 monitor_dir=args.tensorboard_dir,
+            #                 # monitor_kwargs=,
+            #                 wrapper_class=TimeLimit,
+            #                 wrapper_kwargs=dict(max_episode_steps=500),
+            #                 vec_env_cls=SubprocVecEnv,
+            #                 vec_env_kwargs=dict(start_method='fork')
+            #                 )
+            
+            model = PPO(policy="MultiInputPolicy",
+                        env = iCub, #iCubVenv
+                        learning_rate = 0.0003,
+                        n_steps = 2048,
+                        batch_size = 64,
+                        n_epochs = 10,
+                        gamma = 0.99,
+                        gae_lambda = 0.95,
+                        clip_range = 0.2,
+                        clip_range_vf = None,
+                        normalize_advantage = True,
+                        ent_coef = 0,
+                        vf_coef = 0.5,
+                        max_grad_norm = 0.5,
+                        use_sde = False,
+                        sde_sample_freq = -1,
+                        rollout_buffer_class = None,
+                        rollout_buffer_kwargs = None,
+                        target_kl = None,
+                        stats_window_size = 100,
+                        tensorboard_log = args.tensorboard_dir,
+                        policy_kwargs = dict(net_arch=args.net_arch),
+                        verbose = 1,
+                        seed = 1,
+                        device = args.training_device,
+                        _init_setup_model = True)
+
         else:
             raise ValueError('The observation space specified as argument is not valid. Quitting.')
 
@@ -904,10 +1021,13 @@ else:
             model.load_demonstrations_replay_buffer(args.load_demonstrations_replay_buffer_path)
             model.train_with_OERLD = True
 
-        model.learn(total_timesteps=args.total_training_timesteps,
-                    eval_freq=args.eval_freq,
-                    eval_env=iCub,
-                    eval_log_path=args.eval_dir)
+        model.learn(
+                    total_timesteps=args.total_training_timesteps,
+                    callback = None,
+                    log_interval = args.eval_freq,
+                    tb_log_name = "PPO",
+                    reset_num_timesteps = True,
+                    progress_bar = False,)
 
         if args.save_replay_buffer:
             if args.save_demonstrations_replay_buffers_per_object and args.train_with_reptile:
