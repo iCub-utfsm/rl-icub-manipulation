@@ -1,0 +1,81 @@
+# PPO parameters
+seed: 1
+log_root: "log_resuls"
+include_timestamp: True
+do_logging: True
+n_workers: 2
+eval_freq: 500000
+eval_seed: 100
+eval_n_episodes: 20
+max_episode_steps: 512
+n_layers: 2
+layer_size: 1024
+std_init: 0.01
+n_steps: 4096
+learning_rate: 0.0004
+batch_size: 256
+n_epochs: 10
+gamma: 0.99
+gae_lambda: 0.95
+clip_range: 0.2
+ent_coef: 0
+max_grad_norm: 1
+target_kl: 0.15
+
+## iCub class parameters
+# test_model: False
+render_cameras: ["front_cam",] #["front_cam","head_cam"]
+# record_video: False
+done_if_joints_out_of_limits: False
+xml_model_path: "../models/icub_visuomanip_ikin_limits.xml"
+print_done_info: True
+icub_observation_space:
+  - "joints"
+  - "cartesian"
+icub_action_space:
+  - "joints"
+obs_camera: "head_cam_track_hand"
+objects:
+  - "005_tomato_soup_can"
+use_table: False
+# task: "refine_grasp"
+training_components:
+  - "torso_pitch"
+  - "torso_yaw"
+  - "torso_roll"
+  - "r_arm"
+joints_margin: 0.0
+fixed_initial_pos: False
+objects_positions:
+  - -0.3
+  - 0.05
+  - 1.009
+objects_quaternions:
+  - 1.0
+  - 0
+  - 0
+  - 0
+feature_extractor_model_name: "MAE"
+track_object: True
+eef_name: "r_hand_dh_frame"
+max_delta_qpos: 0.2
+max_delta_cartesian_rot: 0.01
+max_delta_cartesian_pos: 0.002
+eval_dir: "eval_dir/test/goto_reaching"
+ik_components:
+  - "torso_pitch"
+  - "torso_yaw"
+  - "torso_roll"
+  - "r_arm"
+training_device: "cuda"
+cartesian_components:
+ - "all_ypr"
+# net_arch:
+#   - 2048
+#   - 2048
+distanced_superq_grasp_pose: False #True
+ik_solver: "ikin"
+total_training_timesteps: 1000000
+randomly_move_objects: True
+limit_torso_pitch_ikin: True
+approach_in_reset_model: True
