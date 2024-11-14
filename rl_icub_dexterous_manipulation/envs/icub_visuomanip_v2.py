@@ -88,7 +88,8 @@ class ICubEnv(gym.Env):
                  limit_torso_pitch_ikin=False,
                  use_only_right_hand_model=False,
                  grasp_planner='superquadrics',
-                 pretrained_model_dir=None
+                 pretrained_model_dir=None,
+                 max_episode_steps=100
                  ):
 
         # Load xml model
@@ -176,7 +177,7 @@ class ICubEnv(gym.Env):
         self.frame_skip = frame_skip
         self.steps = 0
         self.total_steps = 0
-        self._max_episode_steps = 1000
+        self._max_episode_steps = max_episode_steps
         self.render_cameras = render_cameras
         self.obs_camera = obs_camera
         self.superquadrics_camera = superquadrics_camera

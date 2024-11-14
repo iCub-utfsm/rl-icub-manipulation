@@ -27,7 +27,7 @@ training_components:
   - "r_arm"
   # - "r_hand"
 joints_margin: 0.0
-fixed_initial_pos: False
+fixed_initial_pos: True
 objects_positions:
   - -0.3
   - 0.05

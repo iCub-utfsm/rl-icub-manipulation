@@ -1,10 +1,10 @@
 # PPO parameters
 seed: 1
-log_root: "log_resuls"
+log_root: "log_results"
 include_timestamp: True
 do_logging: True
 n_workers: 2
-eval_freq: 500000
+eval_freq: 50000
 eval_seed: 100
 eval_n_episodes: 20
 max_episode_steps: 512
@@ -45,7 +45,7 @@ training_components:
   - "torso_roll"
   - "r_arm"
 joints_margin: 0.0
-fixed_initial_pos: False
+fixed_initial_pos: True
 objects_positions:
   - -0.3
   - 0.05

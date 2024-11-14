@@ -6,7 +6,6 @@ from typing import Optional
 from pathlib import Path
 from datetime import datetime
 import yaml
-import argparse
 import numpy as np
 
 import torch
@@ -16,10 +15,11 @@ from gymnasium.wrappers import TimeLimit
 
 from stable_baselines3 import PPO
 from stable_baselines3.common.logger import configure
-from stable_baselines3.common.env_util import make_vec_env
-from stable_baselines3.common.vec_env import SubprocVecEnv, VecNormalize
+# from stable_baselines3.common.env_util import make_vec_env
+from stable_baselines3.common.vec_env import SubprocVecEnv, VecNormalize, VecMonitor
 from stable_baselines3.common.callbacks import BaseCallback, EvalCallback
 
+from rl_icub_dexterous_manipulation.envs.env_util import make_vec_env
 from rl_icub_dexterous_manipulation.envs.icub_visuomanip_refine_grasp_goto import ICubEnvRefineGrasp
 
 FLAGS = flags.FLAGS
@@ -257,21 +257,23 @@ def make_env(seed=0, training=True):
         limit_torso_pitch_ikin=FLAGS.limit_torso_pitch_ikin,
         use_only_right_hand_model=FLAGS.use_only_right_hand_model,
         grasp_planner=FLAGS.grasp_planner,
-        pretrained_model_dir=FLAGS.pretrained_model_dir
+        pretrained_model_dir=FLAGS.pretrained_model_dir,
+        max_episode_steps=FLAGS.max_episode_steps
     )
-    env_kwargs = task_kwargs #dict(task_kwargs=task_kwargs)
+    env_kwargs = dict(task_kwargs=task_kwargs) #task_kwargs 
 
     env = make_vec_env(
             env_id=env_id, 
-            env_kwargs=env_kwargs,
             n_envs=FLAGS.n_workers,
             seed=seed,
+            wrapper_class=TimeLimit,
+            env_kwargs=env_kwargs,
+            vec_env_cls=SubprocVecEnv,
+            vec_monitor_cls=VecMonitor,
             # start_index=0,
             monitor_dir=FLAGS.log_root,
             # monitor_kwargs=,
-            wrapper_class=TimeLimit,
             wrapper_kwargs=dict(max_episode_steps=FLAGS.max_episode_steps),
-            vec_env_cls=SubprocVecEnv,
             # vec_env_kwargs=dict(start_method='fork')
             )
     env = VecNormalize(env, training=training, gamma=FLAGS.gamma,

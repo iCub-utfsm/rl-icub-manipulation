@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2023 Humanoid Sensing and Perception, Istituto Italiano di Tecnologia
 # SPDX-License-Identifier: BSD-3-Clause
 
+from typing import Any, Callable, Dict, Optional, Text, Tuple
 from rl_icub_dexterous_manipulation.envs.icub_visuomanip_v2 import ICubEnv
 import numpy as np
 from rl_icub_dexterous_manipulation.utils.pcd_utils import pcd_from_depth, points_in_world_coord
@@ -17,11 +18,22 @@ from dm_control import mujoco
 
 class ICubEnvRefineGrasp(ICubEnv):
 
-    def __init__(self, **kwargs):
-        if len(kwargs.get('objects')) != 1:
+    def __init__(self, 
+                 task_kwargs: Optional[Dict[str, Any]] = None,
+                 environment_kwargs: Optional[Dict[str, Any]] = None,
+                 **kwargs):
+
+        """
+        task_kwargs: passed to the task constructor
+        environment_kwargs: passed to composer.Environment constructor
+        """
+        task_kwargs = task_kwargs or dict()
+        environment_kwargs = environment_kwargs or dict()
+
+        if len(task_kwargs.get('objects')) != 1:
             raise ValueError('There must be one and only one objects in the environment. Quitting.')
 
-        super().__init__(**kwargs)
+        super().__init__(**task_kwargs)
 
         self.init_icub_act_after_superquadrics = self.init_icub_act.copy()
         if self.grasp_planner == 'superquadrics':
@@ -94,8 +106,8 @@ class ICubEnvRefineGrasp(ICubEnv):
         return lambda *args, **kwargs: ICubEnvRefineGrasp(*args, **kwargs)
 
     def _scene_callback(self, physics, scene):
-            rgba = np.array((1,0,0,1),dtype=np.float32)
-            radius = np.ones(3) * 0.01
+            rgba = np.array((1,0,0,0.3),dtype=np.float32)
+            radius = np.ones(3) * self.goal_xpos_tolerance
             pos = self.init_qpos[self.joint_ids_objects[0:3]] #self.superq_pose['position']
             mat = np.array(Quaternion(self.init_qpos[self.joint_ids_objects[3:4]]).rotation_matrix).flatten() 
 
@@ -104,7 +116,7 @@ class ICubEnvRefineGrasp(ICubEnv):
             scene.ngeom += 1  # increment ngeom
             # initialise a new capsule, add it to the scene using mjv_connector
             mujoco.mjv_initGeom(scene.geoms[scene.ngeom-1],
-                                mujoco.mjtGeom.mjGEOM_ARROW, radius,
+                                mujoco.mjtGeom.mjGEOM_SPHERE, radius,
                                 pos, mat, rgba.astype(np.float32))
 
 
@@ -128,10 +140,12 @@ class ICubEnvRefineGrasp(ICubEnv):
         observation = self._get_obs()
         
         done_timesteps = self.steps >= self._max_episode_steps
-        done_goal = np.linalg.norm(self.superq_pose['position'] - \
-                                    self.env.physics.named.data.xpos[self.eef_name]) < self.goal_xpos_tolerance
+        # done_goal = np.linalg.norm(self.superq_pose['position'] - \
+        #                             self.env.physics.named.data.xpos[self.eef_name]) < self.goal_xpos_tolerance
+        
+        done_eef_goal = self.goal_eef_reached(self.env.physics.named.data.xpos[self.eef_name], self.superq_pose['position'])
 
-        done = done_goal or done_timesteps
+        # done = done_goal or done_timesteps
 
         # Metrics: joint velocities, accelerations, torques
         joints_pos = np.empty([0, ], dtype=np.float32)
@@ -158,23 +172,25 @@ class ICubEnvRefineGrasp(ICubEnv):
 
         info = {'Steps': self.steps,
                 'Done': {'timesteps': done_timesteps,
-                         'goal_reached': done_goal,
+                         'goal_eef_reached': done_eef_goal,
                         #  'limits exceeded': self.joints_out_of_range(),
                         #  'object falling from the table': done_object_falling,
                         #  'moved object': done_moved_object,
                         #  'done z pos': done_z_pos
                          },
                 # 'is_success': done_goal,
-                'Joint_pos': joints_pos,
-                'Joint_vel': joints_vel,
-                'Joint_acc': joints_acc,
+                # 'Joint_pos': joints_pos,
+                # 'Joint_vel': joints_vel,
+                # 'Joint_acc': joints_acc,
                 # 'Joint_torques': joints_torque
                 'eef_pose': observation['cartesian'],
                 'obj_pose': np.concatenate(
                                 (self.superq_pose['position'], 
                                 Quaternion(self.superq_pose['quaternion']).yaw_pitch_roll)),
                 }
-        return observation, done, info
+        terminated = done_eef_goal
+        truncated = done_timesteps
+        return observation, terminated, truncated, info
 
     def step(self, action, increase_steps=True, pre_approach_phase=False):
         
@@ -339,7 +355,7 @@ class ICubEnvRefineGrasp(ICubEnv):
         # done_object_falling = self.falling_object() and self.use_table
         # done = done_limits or done_goal or done_timesteps or done_object_falling or done_moved_object or done_z_pos
         
-        done_goal = self.goal_reached(observation['joints'], self.qpos_sol_final_qpos[self.joints_to_control_ik_ids])
+        done_goal = self.goal_joints_reached(observation['joints'], self.qpos_sol_final_qpos[self.joints_to_control_ik_ids])
 
         joints_low = self.state_space.low[self.joints_to_control_ids]
         joints_high = self.state_space.high[self.joints_to_control_ids]
@@ -462,7 +478,13 @@ class ICubEnvRefineGrasp(ICubEnv):
     #         reward += self.reward_goal
     #     return reward
 
-    def goal_reached(self, current_joint_array, final_joint_array):
+    def goal_eef_reached(self, current_eef_pose, desired_eef_pose):
+        position_dist = np.linalg.norm(current_eef_pose[:3] - desired_eef_pose[:3]) 
+        #TODO: include orientation to the goal
+        # orientation_dist = Quaternion.distance(current_eef_pose[3:], desired_eef_pose[3:])
+        return position_dist < self.goal_xpos_tolerance
+
+    def goal_joints_reached(self, current_joint_array, final_joint_array):
         tolerance = 0.01
         distance = np.linalg.norm(current_joint_array - final_joint_array)
         return distance < tolerance
