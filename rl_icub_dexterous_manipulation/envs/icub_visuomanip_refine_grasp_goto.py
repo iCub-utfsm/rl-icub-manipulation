@@ -143,7 +143,8 @@ class ICubEnvRefineGrasp(ICubEnv):
         # done_goal = np.linalg.norm(self.superq_pose['position'] - \
         #                             self.env.physics.named.data.xpos[self.eef_name]) < self.goal_xpos_tolerance
         
-        done_eef_goal = self.goal_eef_reached(self.env.physics.named.data.xpos[self.eef_name], self.superq_pose['position'])
+        done_eef_goal = self.goal_eef_reached(self.env.physics.named.data.xpos[self.eef_name], \
+                                              self.superq_pose['position'])
 
         # done = done_goal or done_timesteps
 
@@ -355,7 +356,9 @@ class ICubEnvRefineGrasp(ICubEnv):
         # done_object_falling = self.falling_object() and self.use_table
         # done = done_limits or done_goal or done_timesteps or done_object_falling or done_moved_object or done_z_pos
         
-        done_goal = self.goal_joints_reached(observation['joints'], self.qpos_sol_final_qpos[self.joints_to_control_ik_ids])
+        done_goal_eef = self.goal_eef_reached(self.env.physics.named.data.xpos[self.eef_name], \
+                                              self.superq_pose['position'])
+        done_goal_joints = self.goal_joints_reached(observation['joints'], self.qpos_sol_final_qpos[self.joints_to_control_ik_ids])
 
         joints_low = self.state_space.low[self.joints_to_control_ids]
         joints_high = self.state_space.high[self.joints_to_control_ids]
@@ -368,25 +371,25 @@ class ICubEnvRefineGrasp(ICubEnv):
         prev_target_norm = self.min_max_normalization(self.prev_action, actuators_low, actuators_high)
         
         # reward = self._get_reward(curr_target_norm, prev_target_norm, curr_joints_norm, obj_joints_norm, done_goal, done_timesteps)
-        reward = self._get_reward(current_action, 
-                                  self.prev_action, 
-                                  observation['joints'], 
-                                  self.qpos_sol_final_qpos[self.joints_to_control_ik_ids], 
-                                  done_goal, 
-                                  done_timesteps)
-        done = done_goal or done_timesteps
+        reward = self._get_reward(current_action, self.prev_action, 
+                                  observation['joints'], self.qpos_sol_final_qpos[self.joints_to_control_ik_ids],
+                                  self.env.physics.named.data.xpos[self.eef_name], self.superq_pose['position'] ,
+                                  done_goal_joints, done_goal_eef, done_timesteps)
+        
+        done = done_goal_joints or done_timesteps or done_goal_eef
         self.prev_action = current_action
         
         info = {'Steps': self.steps,
                 'Done': {'timesteps': done_timesteps,
-                         'goal_reached': done_goal,
+                         'goal_reached_joints': done_goal_joints,
+                         'goal_reached_pos': done_goal_eef,
                         #  'limits exceeded': self.joints_out_of_range(),
                         #  'object falling from the table': done_object_falling,
                         #  'moved object': done_moved_object,
                         #  'done z pos': done_z_pos
                          },
                 'reward': reward,
-                'is_success': done_goal}
+                'is_success': done_goal_joints or done_goal_eef}
         # if self.learning_from_demonstration and not pre_approach_phase:
         #     info['learning from demonstration action'] = action_lfd
         # if 'cartesian' in self.icub_observation_space:
@@ -404,25 +407,36 @@ class ICubEnvRefineGrasp(ICubEnv):
         #     self.lfd_steps -= self.steps
         
         ### Adaptation to work with gymnasium API
-        terminated = done_goal
+        terminated = done_goal_joints or done_goal_eef
         truncated = done_timesteps
         return observation, reward, bool(terminated), truncated, info
     
-    def _get_reward(self, action, prev_action, joints, target_joints, done_goal, done_timesteps):
+    def _get_reward(self, action, prev_action, 
+                    joints, target_joints, 
+                    current_eef_pose, desired_eef_pose, 
+                    done_goal_joints, 
+                    done_goal_eef, 
+                    done_timesteps):
         reward = 0
-        # Reached target pose
-        if done_goal:
+        # Reached target joints
+        if done_goal_joints:
             return self.reward_goal
+        # Reachead target eef position
+        if done_goal_eef:
+            return 1.0
         # Max episode timesteps reached
         if done_timesteps:
             return self.reward_end_timesteps
-        # Current joint angles close to objective joints
-        penalty = 1.0 * sum(np.abs(target_joints - joints)) / len(joints)
+        # Current eef position close to target position
+        penalty = 1.0 * np.linalg.norm(current_eef_pose[:3] - desired_eef_pose[:3]) 
         reward += 0.5 * np.exp(-penalty)
+        # Current joint angles close to objective joints_get_reward
+        penalty = 1.0 * sum(np.abs(target_joints - joints)) / len(joints)
+        reward += 0.25 * np.exp(-penalty)
         # Action close to previous
         penalty = 1.0 * sum(np.abs(prev_action - action)) / len(action)
-        reward += 0.5 * np.exp(-penalty)
-
+        reward += 0.25 * np.exp(-penalty)
+        # Current eef pos
         return reward
 
     # def _get_reward(self, done_limits, done_goal, done_timesteps, done_moved_object, done_z_pos, done_ik=None):
