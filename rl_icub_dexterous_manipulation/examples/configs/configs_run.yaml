@@ -1,5 +1,5 @@
 ## PPO parameters
-model_root: "./log_resuls/1/2024-11-12_09-20-36/eval/model"
+model_root: "./log_results/1/2024-11-14_13-42-07/eval/model"
 max_episode_steps: 512
 
 ## iCub class parameters
@@ -12,6 +12,7 @@ print_done_info: True
 icub_observation_space:
   - "joints"
   - "cartesian"
+  - "object_pose"
 icub_action_space:
   - "joints"
 obs_camera: "head_cam_track_hand"
@@ -41,7 +42,7 @@ eef_name: "r_hand_dh_frame"
 max_delta_qpos: 0.2
 max_delta_cartesian_rot: 0.01
 max_delta_cartesian_pos: 0.002
-eval_dir: "./log_resuls/1/2024-11-12_09-20-36/videos"
+eval_dir: "./log_results/1/2024-11-14_13-42-07/videos"
 ik_components:
   - "torso_pitch"
   - "torso_yaw"

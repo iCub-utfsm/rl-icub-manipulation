@@ -21,6 +21,7 @@ from stable_baselines3.common.callbacks import BaseCallback, EvalCallback
 
 from rl_icub_dexterous_manipulation.envs.env_util import make_vec_env
 from rl_icub_dexterous_manipulation.envs.icub_visuomanip_refine_grasp_goto import ICubEnvRefineGrasp
+from rl_icub_dexterous_manipulation.sb3 import features_extractor
 
 FLAGS = flags.FLAGS
 
@@ -362,8 +363,8 @@ def main(_):
         net_arch=[dict(pi=layer_sizes, vf=layer_sizes)],
         activation_fn=torch.nn.Tanh,
         log_std_init=np.log(FLAGS.std_init),
-        # features_extractor_class=features_extractor.CmuHumanoidFeaturesExtractor,
-        # features_extractor_kwargs=dict(observable_keys=list(env.observation_space.keys()))
+        features_extractor_class=features_extractor.iCubFeaturesExtractor,
+        features_extractor_kwargs=dict(observable_keys=list(env.observation_space.keys()))
     )
 
     model = PPO(policy="MultiInputPolicy",

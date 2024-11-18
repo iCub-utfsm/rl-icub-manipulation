@@ -1,6 +1,6 @@
 # SPDX-FileCopyrightText: 2023 Humanoid Sensing and Perception, Istituto Italiano di Tecnologia
 # SPDX-License-Identifier: BSD-3-Clause
-test_model: False
+test_model: True
 render_cameras: ["front_cam",] #["front_cam","head_cam"]
 record_video: False
 done_if_joints_out_of_limits: False
@@ -13,6 +13,7 @@ icub_observation_space:
   - "cartesian"
   # - "superquadric_center"
   # - "pretrained_output"
+  - "object_pose"
 icub_action_space:
   - "joints"
 obs_camera: "head_cam_track_hand"
@@ -79,4 +80,3 @@ limit_torso_pitch_ikin: True
 #  - 2048
 # gradient_steps: 10
 approach_in_reset_model: True
-random_initial_pos: False

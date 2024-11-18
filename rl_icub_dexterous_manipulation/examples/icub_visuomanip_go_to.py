@@ -727,11 +727,11 @@ if args.test_model:
         episode_reward = 0
         while True:
             # action, _ = model.predict(obs, deterministic=True)
-            # action = iCub.action_space.sample()
-            # obs, reward, terminated, truncated, info = iCub.step(action)
-            obs, terminated, truncated, info = iCub.step_cartsolv()
+            action = iCub.action_space.sample()
+            obs, reward, terminated, truncated, info = iCub.step(action)
+            # obs, terminated, truncated, info = iCub.step_cartsolv()
             imgs = iCub.render()
-            print(f'{info}')
+            print(f'{obs}') #print(f'{info}')
             if args.record_video:
                 images.append(imgs)
             # episode_reward += reward

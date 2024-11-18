@@ -32,6 +32,7 @@ print_done_info: True
 icub_observation_space:
   - "joints"
   - "cartesian"
+  - "object_pose"
 icub_action_space:
   - "joints"
 obs_camera: "head_cam_track_hand"
@@ -75,7 +76,7 @@ cartesian_components:
 #   - 2048
 distanced_superq_grasp_pose: False #True
 ik_solver: "ikin"
-total_training_timesteps: 1000000
+total_training_timesteps: 50000000
 randomly_move_objects: True
 limit_torso_pitch_ikin: True
 approach_in_reset_model: True

@@ -763,7 +763,7 @@ class ICubEnv(gym.Env):
                         raise ValueError('There must be one and only one objects in the environment. Quitting.')
                     obs_space['object_pose'] = gym.spaces.Box(low=-np.inf,
                                                               high=np.inf,
-                                                              shape=[7],
+                                                              shape=[6],
                                                               dtype=np.float32)
                 elif space == 'pretrained_output':
                     obs_space['pretrained_output'] = gym.spaces.Box(low=self.action_space.low,
@@ -908,7 +908,7 @@ class ICubEnv(gym.Env):
             self.steps += 1
 
     def _get_obs(self):
-        self.render()
+        # self.render()
         camera = mujoco.Camera(self.env.physics, 
                                     height=480, 
                                     width=640, 
@@ -1038,7 +1038,10 @@ class ICubEnv(gym.Env):
                     else:
                         obs['grasp_type'] = np.zeros(1, dtype=np.int8)
                 elif space == 'object_pose':
-                    obs['object_pose'] = self.env.physics.data.qpos[self.joint_ids_objects]
+                    obs['object_pose'] = np.concatenate(
+                                (self.init_qpos[self.joint_ids_objects[0:3]], 
+                                Quaternion(self.init_qpos[self.joint_ids_objects[3:7]]).yaw_pitch_roll)) #self.env.physics.data.qpos[self.joint_ids_objects]
+                    
             if 'pretrained_output' in self.icub_observation_space:
                 # If the observation space of the pretrained model and of the model to be trained are different, this
                 # part must be extended
