@@ -12,7 +12,7 @@ n_layers: 2
 layer_size: 1024
 std_init: 0.01
 n_steps: 4096
-learning_rate: 0.0004
+learning_rate: 0.0003
 batch_size: 256
 n_epochs: 10
 gamma: 0.99
@@ -76,7 +76,7 @@ cartesian_components:
 #   - 2048
 distanced_superq_grasp_pose: False #True
 ik_solver: "ikin"
-total_training_timesteps: 50000000
+total_training_timesteps: 10000000
 randomly_move_objects: True
 limit_torso_pitch_ikin: True
 approach_in_reset_model: True
