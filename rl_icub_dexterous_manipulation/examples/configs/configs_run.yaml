@@ -1,16 +1,17 @@
 ## PPO parameters
-model_root: "./log_results/1/2024-11-14_13-42-07/eval/model"
+# model_root: "./log_results/1/2024-11-14_13-42-07/eval/model"
 max_episode_steps: 512
 
 ## iCub class parameters
 # test_model: False
 render_cameras: ["front_cam",] #["front_cam","head_cam"]
-record_video: True
+record_video: False
 done_if_joints_out_of_limits: False
 xml_model_path: "../models/icub_visuomanip_ikin_limits.xml"
 print_done_info: True
 icub_observation_space:
   - "joints"
+  - "joints_vel"
   - "cartesian"
   - "object_pose"
 icub_action_space:
@@ -42,7 +43,7 @@ eef_name: "r_hand_dh_frame"
 max_delta_qpos: 0.2
 max_delta_cartesian_rot: 0.01
 max_delta_cartesian_pos: 0.002
-eval_dir: "./log_results/1/2024-11-14_13-42-07/videos"
+eval_dir: "./log_results/1/2024-11-21_00-00-00/videos"
 ik_components:
   - "torso_pitch"
   - "torso_yaw"
@@ -57,6 +58,6 @@ cartesian_components:
 distanced_superq_grasp_pose: False #True
 ik_solver: "ikin"
 total_training_timesteps: 1000000
-randomly_move_objects: True
+randomly_move_objects: False
 limit_torso_pitch_ikin: True
 approach_in_reset_model: True

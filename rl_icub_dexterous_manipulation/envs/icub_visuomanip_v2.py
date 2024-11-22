@@ -637,7 +637,7 @@ class ICubEnv(gym.Env):
         self.eef_name = eef_name
         self.eef_id_xpos = self.env.physics.model.name2id(eef_name, 'body')
         self.target_eef_pos = np.array([-0.3, 0.1, 1.01])
-        self.goal_xpos_tolerance = 0.05
+        self.goal_xpos_tolerance = 0.025
         self.done_if_joints_out_of_limits = done_if_joints_out_of_limits
         self.do_not_consider_done_z_pos = do_not_consider_done_z_pos
 
@@ -730,6 +730,16 @@ class ICubEnv(gym.Env):
                     low = bounds[:, 0]
                     high = bounds[:, 1]
                     obs_space['joints'] = gym.spaces.Box(low=low, high=high, dtype=np.float32)
+                elif space == 'joints_vel':
+                    bounds = np.concatenate(
+                        [np.expand_dims([-np.inf, np.inf], 0) if actuator.name in self.actuators_to_control
+                         else np.empty([0, 2], dtype=np.float32)
+                         for actuator in self.world_entity.mjcf_model.find_all('actuator')],
+                        axis=0,
+                        dtype=np.float32)
+                    low = bounds[:, 0]
+                    high = bounds[:, 1]
+                    obs_space['joints_vel'] = gym.spaces.Box(low=low, high=high, dtype=np.float32)
                 elif space == 'cartesian':
                     obs_space['cartesian'] = gym.spaces.Box(low=-np.inf,
                                                             high=np.inf,
@@ -926,6 +936,12 @@ class ICubEnv(gym.Env):
                     for actuator in self.actuators_to_control_dict:
                         obs['joints'] = np.append(obs['joints'],
                                                   np.sum(named_qpos[actuator['jnt']] * actuator['coeff'],dtype=np.float32))
+                elif space == 'joints_vel':
+                    obs['joints_vel'] = np.empty([0, ], dtype=np.float32)
+                    named_qvel = self.env.physics.named.data.qvel
+                    for actuator in self.actuators_to_control_dict:
+                        obs['joints_vel'] = np.append(obs['joints_vel'],
+                                                  np.sum(named_qvel[actuator['jnt']] * actuator['coeff'],dtype=np.float32))
                 elif space == 'cartesian':
                     if self.cartesian_orientation == 'ypr':
                         obs['cartesian'] = np.concatenate(

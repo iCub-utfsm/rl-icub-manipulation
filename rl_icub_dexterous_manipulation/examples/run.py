@@ -199,18 +199,18 @@ def main(_):
 
     env = ICubEnvRefineGrasp(task_kwargs=task_kwargs)
 
-    model = utils.load_policy(
-        FLAGS.model_root,
-        list(env.observation_space.keys()),
-        device=FLAGS.training_device
-    )
-
-    @torch.no_grad()
-    def policy_fn(time_step):
-        obs = time_step
-        action, _ = model.predict(obs, deterministic=True)
-        return action
-
+    if FLAGS.model_root:
+        model = utils.load_policy(
+            FLAGS.model_root,
+            list(env.observation_space.keys()),
+            device=FLAGS.training_device
+        )
+        @torch.no_grad()
+        def policy_fn(time_step):
+            obs = time_step
+            action, _ = model.predict(obs, deterministic=True)
+            return action
+        
     # Inicializa un DataFrame vacío
     df = pd.DataFrame()
 
@@ -219,10 +219,15 @@ def main(_):
     # Evaluate the agent
     episode_reward = 0
     while True:
-        action = policy_fn(obs)
-        # action = iCub.action_space.sample()
-        obs, reward, terminated, truncated, info = env.step(action)
-        # obs, terminated, truncated, info = iCub.step_cartsolv()
+        
+        if FLAGS.model_root:
+            action = policy_fn(obs)
+            obs, reward, terminated, truncated, info = env.step(action)
+        else:
+            # obs, reward, terminated, truncated, info = env.step_cartsolv()
+            action = env.action_space.sample()
+            obs, reward, terminated, truncated, info = env.step(action)
+
         imgs = env.render()
         print(f'{info}')
         if FLAGS.record_video:
@@ -245,11 +250,13 @@ def main(_):
             writer.release()
     print("Reward:", episode_reward)
 
-    print(df.head())
-    df.plot(x='Steps', y='reward', color='green')
-    plt.xlabel('Steps')
-    plt.ylabel('Reward')
-    plt.savefig(os.path.dirname(FLAGS.eval_dir)+"/imgs/ep_rew.pdf" )
+    # print(df.head())
+    # df.plot(x='Steps', y='reward', color='green')
+    # plt.xlabel('Steps')
+    # plt.ylabel('Reward')
+    # if not os.path.exists(os.path.dirname(FLAGS.eval_dir)+"/imgs/"):
+    #             os.makedirs(os.path.dirname(FLAGS.eval_dir)+"/imgs/")
+    # plt.savefig(os.path.dirname(FLAGS.eval_dir)+"/imgs/ep_rew.pdf" )
 
 if __name__ == '__main__':
     app.run(main)
