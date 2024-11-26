@@ -1,0 +1,15 @@
+2024-11-18_15-58-19
+    - learning_rate = 0.0003
+    - gamma = 0.99
+
+2024-11-19_12-34-13
+    - learning_rate = 0.0003
+    - gamma = 0.95
+
+2024-11-19_19-33-?
+    - new rewards_v2
+
+2024-11-20_*
+    - se agrega joint_vel al espacion de observacion
+    - sin randomizacion del punto objetivo
+    - sin recompenza negativa al cumplir el maximo num de pasos de tiempo
