@@ -40,7 +40,7 @@ objects_quaternions:
 feature_extractor_model_name: "MAE"
 track_object: True
 eef_name: "r_hand_dh_frame"
-max_delta_qpos: 0.2
+max_delta_qpos: 0.05
 max_delta_cartesian_rot: 0.01
 max_delta_cartesian_pos: 0.002
 eval_dir: "./log_results/1/2024-11-21_00-00-00/videos"
@@ -57,7 +57,6 @@ cartesian_components:
 #   - 2048
 distanced_superq_grasp_pose: False #True
 ik_solver: "ikin"
-total_training_timesteps: 1000000
 randomly_move_objects: False
 limit_torso_pitch_ikin: True
 approach_in_reset_model: True

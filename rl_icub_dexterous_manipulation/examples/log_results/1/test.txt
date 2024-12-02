@@ -1,15 +1,72 @@
+2024-11-12_09-20-36
+    - test 1
+
+2024-11-14-_13-42-09
+    - test 2
+
 2024-11-18_15-58-19
+    - test 3
     - learning_rate = 0.0003
     - gamma = 0.99
 
 2024-11-19_12-34-13
+    - test 3
     - learning_rate = 0.0003
     - gamma = 0.95
 
 2024-11-19_19-33-?
+    - test 4
     - new rewards_v2
 
 2024-11-20_*
+    - test 5
     - se agrega joint_vel al espacion de observacion
     - sin randomizacion del punto objetivo
     - sin recompenza negativa al cumplir el maximo num de pasos de tiempo
+
+2024-11-23/25
+    - test 6
+    - se utiliza optuna para elegir parametros 
+    - lr=0.0003  gamma=0.95  gae_lambda=0.95  ent_coef=0 clip_range=0.2 batch_size=256
+    - lr=0.00018 gamma=0.995 gae_lambda=0.997 ent_coef=0.0034 max_grad_norm=0.637 n_steps=128 tanh
+
+2024-11-29
+    - test 7
+
+-------------------------------------------------------------------------------------------------------------------------
+
+2024-12-01_16-10-26
+    - Nuevo test 1, usando rewards_v2, episodio termina luego de 512 pasos o cuando el eef llega al objetivo, objeto estatico
+    - Espacion de observacion: joints, joints_vel, eef_pose, target_pose
+    - Se mejora la funcion step, ahora las acciones son deltas que incrementan la actuacion 
+    - El espacio de accion va de -1 a 1 por el factor max_qpos_delta, la actuacion son los rangos permitidos por cada articulacion
+
+2024-12-01_18-19-54
+    - Se incrementa el numero total de pasos de tiempo a 4M
+
+2024-12-01_
+    - Se habilita sde
+    - Maximo num de timesteps reducido a 2M
+
+-------------------------------------------------------------------------------------------------------------------------
+
+** Hyperparameters: Epochs, Minibatches, Horizon
+    Horizon Range: 32 to 5000
+    (nminibatches) Minibatch Range: 4 to 4096
+    (noptepochs) Epoch Range: 3 to 30
+
+** Hyperparameters: Clipping, Gamma, Lambda, KL Target
+    (cliprange) Clipping Range: 0.1, 0.2, 0.3
+
+    (kl_target) KL Target Range: 0.003 to 0.03
+    (kl_coeff) KL Initialization Range: 0.3 to 1
+
+    (gamma) Discount Factor Gamma Range: 0.99 (most common), 0.8 to 0.9997
+    (lambda) GAE Parameter Lambda Range: 0.9 to 1
+
+** Hyperparameters: Value Function and Entropy Coefficients
+    (ent_coeff) Entropy Coefficient Range: 0 to 0.01 
+    (vf_coef) Value Function Coefficient Range: 0.5, 1
+
+** Other Hyperparameters: Ending Condition and Learning Rate
+    (lr) Learning Rate Range: 0.003 to 5e-6  

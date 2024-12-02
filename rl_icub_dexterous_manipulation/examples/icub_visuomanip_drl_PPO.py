@@ -51,7 +51,6 @@ flags.DEFINE_boolean('goal_reached_only_with_lift_refine_grasp', False, 'Success
 flags.DEFINE_boolean('high_negative_reward_approach_failures', False, 'Strongly penalize moved object in the approach phase in the grasp refinement task.')
 flags.DEFINE_float('joints_margin', 0.0, 'Set the margin from joints limits for joints control.')
 flags.DEFINE_integer('total_training_timesteps', 10000000, 'Set the number of training episodes for SAC. Default is 10M')
-flags.DEFINE_string('eval_dir', 'logs_eval', 'Set the directory where evaluation files are saved. Default directory is logs_eval.')
 flags.DEFINE_string('pretrained_model_dir', None, 'Set the directory where the requested pretrained model is saved.')
 flags.DEFINE_multi_string('icub_observation_space', ['joints'], 'Set the observation space: joints will use as observation space joints positions, camera will use information from the camera specified with the argument obs_camera, features the features extracted by the camera specified with the argument obs_camera, flare a combination of the features with information at the previous timesteps, pretrained_output the output of the pre-trained policy stored in pretrained_model_dir, grasp_type an integer value that describes the grasp type based on the initial grasp pose and touch the tactile information. If you pass multiple argument, you will use a MultiInputPolicy.')
 flags.DEFINE_multi_string('icub_action_space', ['joints'], 'TODO')
@@ -127,6 +126,8 @@ flags.DEFINE_float('clip_range', 0.2, 'Clip range for PPO')
 flags.DEFINE_float('ent_coef', 0.0, 'Entropy coefficient')
 flags.DEFINE_float('max_grad_norm', 1.0, 'Maximum gradient norm')
 flags.DEFINE_float('target_kl', 0.15, 'Target KL divergence for PPO')
+flags.DEFINE_float('vf_coef',0.5,'TODO')
+flags.DEFINE_boolean('use_sde', False, 'TODO')
 
 class SaveVecNormalizeCallback(BaseCallback):
     """
@@ -379,9 +380,9 @@ def main(_):
                 clip_range_vf = None,
                 normalize_advantage = True,
                 ent_coef = FLAGS.ent_coef,
-                vf_coef = 0.5,
+                vf_coef = FLAGS.vf_coef,
                 max_grad_norm = FLAGS.max_grad_norm,
-                use_sde = False,
+                use_sde = FLAGS.use_sde,
                 sde_sample_freq = -1,
                 rollout_buffer_class = None,
                 rollout_buffer_kwargs = None,

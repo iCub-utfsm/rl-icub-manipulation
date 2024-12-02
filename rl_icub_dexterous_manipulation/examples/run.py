@@ -38,7 +38,6 @@ flags.DEFINE_boolean('reward_dist_original_superq_grasp_position', False, 'Add a
 flags.DEFINE_boolean('goal_reached_only_with_lift_refine_grasp', False, 'Successful episode only with object lifted in grasp refinement task.')
 flags.DEFINE_boolean('high_negative_reward_approach_failures', False, 'Strongly penalize moved object in the approach phase in the grasp refinement task.')
 flags.DEFINE_float('joints_margin', 0.0, 'Set the margin from joints limits for joints control.')
-flags.DEFINE_integer('total_training_timesteps', 10000000, 'Set the number of training episodes for SAC. Default is 10M')
 flags.DEFINE_string('eval_dir', 'logs_eval', 'Set the directory where evaluation files are saved. Default directory is logs_eval.')
 flags.DEFINE_string('pretrained_model_dir', None, 'Set the directory where the requested pretrained model is saved.')
 flags.DEFINE_multi_string('icub_observation_space', ['joints'], 'Set the observation space: joints will use as observation space joints positions, camera will use information from the camera specified with the argument obs_camera, features the features extracted by the camera specified with the argument obs_camera, flare a combination of the features with information at the previous timesteps, pretrained_output the output of the pre-trained policy stored in pretrained_model_dir, grasp_type an integer value that describes the grasp type based on the initial grasp pose and touch the tactile information. If you pass multiple argument, you will use a MultiInputPolicy.')
@@ -214,7 +213,7 @@ def main(_):
     # Inicializa un DataFrame vacío
     df = pd.DataFrame()
 
-    obs, _ = env.reset(seed=20)
+    obs, _ = env.reset()
     images = []
     # Evaluate the agent
     episode_reward = 0

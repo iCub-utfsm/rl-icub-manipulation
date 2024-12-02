@@ -3,24 +3,28 @@ seed: 1
 log_root: "log_results"
 include_timestamp: True
 do_logging: True
-n_workers: 2
+n_workers: 8
 eval_freq: 50000
 eval_seed: 100
 eval_n_episodes: 20
 max_episode_steps: 512
 n_layers: 2
-layer_size: 1024
+layer_size: 512
 std_init: 0.01
-n_steps: 4096
-learning_rate: 0.0003
-batch_size: 256
+n_steps: 9728
+learning_rate: 0.0002
+batch_size: 512
 n_epochs: 10
-gamma: 0.95
-gae_lambda: 0.95
-clip_range: 0.2
-ent_coef: 0
-max_grad_norm: 1
-target_kl: 0.15
+gamma: 0.996
+gae_lambda: 0.997
+clip_range: 0.1
+ent_coef: 0.01
+max_grad_norm: 0.5
+target_kl: 0.03
+vf_coef: 0.5
+total_training_timesteps: 2003968 #4007936
+training_device: "cuda"
+use_sde: True
 
 ## iCub class parameters
 # test_model: False
@@ -60,16 +64,14 @@ objects_quaternions:
 feature_extractor_model_name: "MAE"
 track_object: True
 eef_name: "r_hand_dh_frame"
-max_delta_qpos: 0.2
+max_delta_qpos: 0.05
 max_delta_cartesian_rot: 0.01
 max_delta_cartesian_pos: 0.002
-eval_dir: "eval_dir/test/goto_reaching"
 ik_components:
   - "torso_pitch"
   - "torso_yaw"
   - "torso_roll"
   - "r_arm"
-training_device: "cuda"
 cartesian_components:
  - "all_ypr"
 # net_arch:
@@ -77,7 +79,6 @@ cartesian_components:
 #   - 2048
 distanced_superq_grasp_pose: False #True
 ik_solver: "ikin"
-total_training_timesteps: 2000000
-randomly_move_objects: True
+randomly_move_objects: False
 limit_torso_pitch_ikin: True
 approach_in_reset_model: True

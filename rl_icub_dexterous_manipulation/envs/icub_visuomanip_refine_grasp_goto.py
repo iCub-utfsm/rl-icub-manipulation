@@ -219,6 +219,7 @@ class ICubEnvRefineGrasp(ICubEnv):
 
         if self.prev_action is None:
             self.prev_action = current_action
+            self.prev_actuation = np.float32(self.init_icub_act)
 
         if self.control_gaze:
             neck_qpos = self.gaze_controller.gaze_control(self.fixation_point,
@@ -324,19 +325,20 @@ class ICubEnvRefineGrasp(ICubEnv):
         #     if superq_pose_r_hand[0, 3] <= -0.5 or superq_pose_r_hand[0, 3] >= 0 or \
         #             superq_pose_r_hand[1, 3] <= -0.3 or superq_pose_r_hand[1, 3] >= 0.5 or \
         #             superq_pose_r_hand[2, 3] <= 1.0 or superq_pose_r_hand[2, 3] >= 1.6:
-        #         done_ik = True
-        qpos_jnt_tendons = np.empty([0, ], dtype=np.float32)
-        for actuator in self.actuators_to_control_dict:
-            qpos_jnt_tendons = np.append(qpos_jnt_tendons,
-                                         np.sum(named_qpos[actuator['jnt']] * actuator['coeff']))
-        action += qpos_jnt_tendons
-        action -= self.init_icub_act_after_superquadrics[self.actuators_to_control_ids]
-        null_action = np.zeros(len(self.init_icub_act_after_superquadrics))
+        #         done_ik = True        
+        # qpos_jnt_tendons = np.empty([0, ], dtype=np.float32)
+        # for actuator in self.actuators_to_control_dict:
+        #     qpos_jnt_tendons = np.append(qpos_jnt_tendons,
+        #                                  np.sum(named_qpos[actuator['jnt']] * actuator['coeff']))
+        # action += qpos_jnt_tendons
+        # action -= self.init_icub_act[self.actuators_to_control_ids] #self.init_icub_act_after_superquadrics[self.actuators_to_control_ids]
+
+        null_action = np.zeros(len(self.init_icub_act_after_superquadrics), dtype=np.float32)
         np.put(null_action, self.actuators_to_control_ids, action)
         action = null_action
-        target = np.clip(np.add(self.init_icub_act_after_superquadrics, action),
+        target = np.clip(np.add(self.prev_actuation, action), #np.add(self.init_icub_act, action), #np.add(self.init_icub_act_after_superquadrics, action), 
                          self.actuators_space.low + self.actuators_margin,
-                         self.actuators_space.high - self.actuators_margin)
+                         self.actuators_space.high - self.actuators_margin, dtype=np.float32)
         if self.control_gaze:
             target[self.actuators_to_control_gaze_controller_ids] = np.reshape(neck_qpos.x, (3,))
         # if 'cartesian' in self.icub_observation_space and not self.use_only_right_hand_model:
@@ -390,6 +392,7 @@ class ICubEnvRefineGrasp(ICubEnv):
         
         done = done_goal_joints or done_timesteps or done_goal_eef
         self.prev_action = current_action
+        self.prev_actuation = target
         
         info = {'Steps': self.steps,
                 'Done': {'timesteps': done_timesteps,

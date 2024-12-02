@@ -132,12 +132,13 @@ flags.DEFINE_float('ent_coef', 0.0, 'Entropy coefficient')
 flags.DEFINE_float('max_grad_norm', 1.0, 'Maximum gradient norm')
 flags.DEFINE_float('target_kl', 0.15, 'Target KL divergence for PPO')
 
-N_TRIALS = 100
-N_STARTUP_TRIALS = 5
-N_EVALUATIONS = 2
-# N_TIMESTEPS = FLAGS.total_training_timesteps #int(2e4)
+N_TRIALS = 100       # Maximum number of trials
+N_STARTUP_TRIALS = 5 # Stop random sampling after N_STARTUP_TRIALS
+N_EVALUATIONS = 2    # Number of evaluations during the training
+# N_TIMESTEPS = FLAGS.total_training_timesteps #int(2e4)  # Training budget
 # EVAL_FREQ = int(FLAGS.eval_freq / FLAGS.n_workers) #int(N_TIMESTEPS / N_EVALUATIONS)
 # N_EVAL_EPISODES = 3
+TIMEOUT = int(60 * 15)  # 15 minutes
 
 # ENV_ID = "CartPole-v1"
 
@@ -443,7 +444,8 @@ def objective(trial: optuna.Trial) -> float:
 
     nan_encountered = False
     try:
-        model.learn(FLAGS.total_training_timesteps, callback=eval_callback) #N_TIMESTEPS
+        model.learn(FLAGS.total_training_timesteps, #N_TIMESTEPS
+                    callback=eval_callback) 
     except AssertionError as e:
         # Sometimes, random hyperparams can generate NaN.
         print(e)
@@ -501,11 +503,20 @@ def main(_):
 
     sampler = TPESampler(n_startup_trials=N_STARTUP_TRIALS)
     # Do not prune before 1/3 of the max budget is used.
-    pruner = MedianPruner(n_startup_trials=N_STARTUP_TRIALS, n_warmup_steps=N_EVALUATIONS // 3)
+    pruner = MedianPruner(n_startup_trials=N_STARTUP_TRIALS, 
+                          n_warmup_steps=N_EVALUATIONS // 3,
+                          n_min_trials=10)
 
-    study = optuna.create_study(sampler=sampler, pruner=pruner, direction="maximize")
+    study = optuna.create_study(sampler=sampler, 
+                                pruner=pruner, 
+                                direction="maximize",
+                                storage="sqlite:///db.sqlite3",  # Specify the storage URL here.
+                                study_name="quadratic-simple")
     try:
-        study.optimize(objective, n_trials=N_TRIALS, timeout=600)
+        study.optimize(objective, n_trials=N_TRIALS,
+                       show_progress_bar=True, 
+                       timeout=TIMEOUT
+                       )
     except KeyboardInterrupt:
         pass
 
