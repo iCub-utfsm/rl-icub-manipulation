@@ -21,7 +21,7 @@ from stable_baselines3.common.callbacks import BaseCallback, EvalCallback
 
 from rl_icub_dexterous_manipulation.envs.env_util import make_vec_env
 from rl_icub_dexterous_manipulation.envs.icub_visuomanip_refine_grasp_goto import ICubEnvRefineGrasp
-from rl_icub_dexterous_manipulation.sb3 import features_extractor
+from rl_icub_dexterous_manipulation.sb3 import features_extractor, utils
 
 FLAGS = flags.FLAGS
 
@@ -128,6 +128,7 @@ flags.DEFINE_float('max_grad_norm', 1.0, 'Maximum gradient norm')
 flags.DEFINE_float('target_kl', 0.15, 'Target KL divergence for PPO')
 flags.DEFINE_float('vf_coef',0.5,'TODO')
 flags.DEFINE_boolean('use_sde', False, 'TODO')
+flags.DEFINE_string("model_root", None, "Directory where trained policies are stored")
 
 class SaveVecNormalizeCallback(BaseCallback):
     """
@@ -368,32 +369,45 @@ def main(_):
         features_extractor_kwargs=dict(observable_keys=list(env.observation_space.keys()))
     )
 
-    model = PPO(policy="MultiInputPolicy",
-                env = env,
-                learning_rate = FLAGS.learning_rate,
-                n_steps = int(FLAGS.n_steps / FLAGS.n_workers),
-                batch_size = FLAGS.batch_size,
-                n_epochs = FLAGS.n_epochs,
-                gamma = FLAGS.gamma,
-                gae_lambda = FLAGS.gae_lambda,
-                clip_range = FLAGS.clip_range,
-                clip_range_vf = None,
-                normalize_advantage = True,
-                ent_coef = FLAGS.ent_coef,
-                vf_coef = FLAGS.vf_coef,
-                max_grad_norm = FLAGS.max_grad_norm,
-                use_sde = FLAGS.use_sde,
-                sde_sample_freq = -1,
-                rollout_buffer_class = None,
-                rollout_buffer_kwargs = None,
-                target_kl = FLAGS.target_kl,
-                stats_window_size = 100,
-                # tensorboard_log = FLAGS.tensorboard_dir,
-                policy_kwargs = policy_kwargs,
-                verbose = 1,
-                seed = FLAGS.seed,
-                device = FLAGS.training_device,
-                _init_setup_model = True)
+    if FLAGS.model_root: # TODO: To continue training, not working now
+        model = utils.load_policy(
+            FLAGS.model_root,
+            list(env.observation_space.keys()),
+            device=FLAGS.training_device
+        )
+        model.set_parameters(
+            load_path_or_dict=osp.join(FLAGS.model_root, 'best_model.zip'),
+            device=FLAGS.training_device
+        )
+        model.set_env(env)
+
+    else:
+        model = PPO(policy="MultiInputPolicy",
+                    env = env,
+                    learning_rate = FLAGS.learning_rate,
+                    n_steps = int(FLAGS.n_steps / FLAGS.n_workers),
+                    batch_size = FLAGS.batch_size,
+                    n_epochs = FLAGS.n_epochs,
+                    gamma = FLAGS.gamma,
+                    gae_lambda = FLAGS.gae_lambda,
+                    clip_range = FLAGS.clip_range,
+                    clip_range_vf = None,
+                    normalize_advantage = True,
+                    ent_coef = FLAGS.ent_coef,
+                    vf_coef = FLAGS.vf_coef,
+                    max_grad_norm = FLAGS.max_grad_norm,
+                    use_sde = FLAGS.use_sde,
+                    sde_sample_freq = -1,
+                    rollout_buffer_class = None,
+                    rollout_buffer_kwargs = None,
+                    target_kl = FLAGS.target_kl,
+                    stats_window_size = 100,
+                    # tensorboard_log = FLAGS.tensorboard_dir,
+                    policy_kwargs = policy_kwargs,
+                    verbose = 1,
+                    seed = FLAGS.seed,
+                    device = FLAGS.training_device,
+                    _init_setup_model = True)
 
     model.set_logger(logger)
 

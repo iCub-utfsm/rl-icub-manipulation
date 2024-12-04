@@ -1,53 +1,88 @@
 2024-11-12_09-20-36
     - test 1
 
-2024-11-14-_13-42-09
+2024-11-14_13-42-09
     - test 2
+    - eval_freq=50000
+
+2024-11-15_16-43-36
+    - test 3
+    - se agrega object_pose al espacion de observacion
+
+2024-11-15_18-45-54
+    - test 4
+    - total_training_timesteps=10M
 
 2024-11-18_15-58-19
-    - test 3
+    - test 5
+    - total_training_timesteps=10M
     - learning_rate = 0.0003
     - gamma = 0.99
 
 2024-11-19_12-34-13
-    - test 3
+    - test 6
+    - total_training_timesteps=10M
     - learning_rate = 0.0003
     - gamma = 0.95
+    - se cancela a los 5M de timesteps por no mostrar mejora respecto al anterior resultado
 
-2024-11-19_19-33-?
-    - test 4
-    - new rewards_v2
-
-2024-11-20_*
-    - test 5
-    - se agrega joint_vel al espacion de observacion
+2024-11-20_19-35-00
+    - test 7
+    - usando rewards_v2
+    - total_training_timesteps=2M
     - sin randomizacion del punto objetivo
     - sin recompenza negativa al cumplir el maximo num de pasos de tiempo
 
-2024-11-23/25
-    - test 6
+2024-11-21_21-06-02
+    - test 8
+    - se agrega joint_vel al espacion de observacion
+
+2024-11-23
+    - test 9
     - se utiliza optuna para elegir parametros 
     - lr=0.0003  gamma=0.95  gae_lambda=0.95  ent_coef=0 clip_range=0.2 batch_size=256
+
+2024-11-25 -> exitos casi al 50%
+    - test 9 
+    - se utiliza optuna para elegir parametros 
     - lr=0.00018 gamma=0.995 gae_lambda=0.997 ent_coef=0.0034 max_grad_norm=0.637 n_steps=128 tanh
 
 2024-11-29
-    - test 7
+    - test 10
+    - batch_size=64 clip_range=0.3 ent_coef=0.0035 gae_lambda=0.997 gamma=0.996 layer_size=256 
+      learning_rate=0.0002 max_episode_steps=128 max_grad_norm=0.5 n_epochs=5 n_layers=1 target_kl=0.03 vf_coef=0.76
 
 -------------------------------------------------------------------------------------------------------------------------
 
 2024-12-01_16-10-26
+    - test 11
+    - Se mejora la funcion step, ahora las acciones son deltas que incrementan la actuacion 
     - Nuevo test 1, usando rewards_v2, episodio termina luego de 512 pasos o cuando el eef llega al objetivo, objeto estatico
     - Espacion de observacion: joints, joints_vel, eef_pose, target_pose
-    - Se mejora la funcion step, ahora las acciones son deltas que incrementan la actuacion 
     - El espacio de accion va de -1 a 1 por el factor max_qpos_delta, la actuacion son los rangos permitidos por cada articulacion
 
 2024-12-01_18-19-54
+    - test 12
     - Se incrementa el numero total de pasos de tiempo a 4M
 
 2024-12-01_
+    - test 13
     - Se habilita sde
     - Maximo num de timesteps reducido a 2M
 
+2024-12-03
+    - test 14
+    - Idem a 13 pero con randomly_move_objects=True
+
+2024-12-03_21-58-15
+    - test 15
+    - Idem a 14, continuando entrenamiento desde los 2M hasta los 4M
+    - Resultados no fueron mejores que en test 14
+
+2024-12-03_23-08-04
+    - test 16
+    - Idem a 14, Maximo num de timesteps=4M
+    - Resultado: luego de los 2M, no se logra tener el 100% de exitos en eval
 -------------------------------------------------------------------------------------------------------------------------
 
 ** Hyperparameters: Epochs, Minibatches, Horizon

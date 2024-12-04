@@ -10,6 +10,10 @@ from absl import app, flags
 from rl_icub_dexterous_manipulation.sb3 import utils
 from rl_icub_dexterous_manipulation.envs.icub_visuomanip_refine_grasp_goto import ICubEnvRefineGrasp
 
+from datetime import datetime
+import seaborn as sns
+sns.set_theme()
+
 FLAGS = flags.FLAGS
 
 # Task parameters
@@ -92,6 +96,7 @@ flags.DEFINE_boolean('use_only_right_hand_model', False, 'Use only the right han
 flags.DEFINE_string('grasp_planner', 'superquadrics', 'Set the grasp planner between superquadrics and vgn.')
 flags.DEFINE_boolean('done_if_joints_out_of_limits', False, 'End the episode if any joint goes out of limits.')
 flags.DEFINE_boolean('record_video', False, 'Record video while testing the best model.')
+flags.DEFINE_boolean('use_cartsolv', False, 'Use cartesian solver for the task.')
 
 # PPO parameters
 flags.DEFINE_string("model_root", None, "Directory where trained policies are stored")
@@ -223,9 +228,11 @@ def main(_):
             action = policy_fn(obs)
             obs, reward, terminated, truncated, info = env.step(action)
         else:
-            # obs, reward, terminated, truncated, info = env.step_cartsolv()
-            action = env.action_space.sample()
-            obs, reward, terminated, truncated, info = env.step(action)
+            if FLAGS.use_cartsolv:
+                obs, reward, terminated, truncated, info = env.step_cartsolv()
+            else:
+                action = env.action_space.sample()
+                obs, reward, terminated, truncated, info = env.step(action)
 
         imgs = env.render()
         print(f'{info}')
@@ -238,15 +245,25 @@ def main(_):
         if terminated or truncated:
             break
     if FLAGS.record_video:
+        now = datetime.now()
+
         print('Recording video.')
         for i in range(len(FLAGS.render_cameras)):
             fourcc = cv2.VideoWriter_fourcc('m', 'p', '4', 'v')
             if not os.path.exists(FLAGS.eval_dir):
                 os.makedirs(FLAGS.eval_dir)
-            writer = cv2.VideoWriter(FLAGS.eval_dir + '/{}.mp4'.format(FLAGS.render_cameras[i]), fourcc, 30, (640, 480))
+            writer = cv2.VideoWriter(FLAGS.eval_dir + '/{}_{}.mp4'.format(FLAGS.render_cameras[i],
+                                                                          now.strftime("%Y-%m-%d_%H-%M-%S")), 
+                                                                          fourcc, 30, (640, 480))
             for num_img, imgs in enumerate(images):
                 writer.write(imgs[i][:, :, ::-1])
             writer.release()
+            
+            df.plot(x='Steps', y='reward')
+            plt.xlabel('Steps')
+            plt.ylabel('Reward')
+            plt.savefig(FLAGS.eval_dir + "/ep_rew_{}.pdf".format(now.strftime("%Y-%m-%d_%H-%M-%S")))
+
     print("Reward:", episode_reward)
 
     # print(df.head())

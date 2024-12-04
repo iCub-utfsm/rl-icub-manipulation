@@ -22,7 +22,7 @@ ent_coef: 0.01
 max_grad_norm: 0.5
 target_kl: 0.03
 vf_coef: 0.5
-total_training_timesteps: 2003968 #4007936
+total_training_timesteps: 4007936 #2003968
 training_device: "cuda"
 use_sde: True
 
@@ -79,6 +79,6 @@ cartesian_components:
 #   - 2048
 distanced_superq_grasp_pose: False #True
 ik_solver: "ikin"
-randomly_move_objects: False
+randomly_move_objects: True
 limit_torso_pitch_ikin: True
 approach_in_reset_model: True
