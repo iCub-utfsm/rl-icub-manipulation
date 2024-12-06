@@ -83,6 +83,11 @@
     - test 16
     - Idem a 14, Maximo num de timesteps=4M
     - Resultado: luego de los 2M, no se logra tener el 100% de exitos en eval
+
+2024-12-05_09-3X-XX
+    - test 17
+    - gamma=0.9 para intentar que llegue al punto objetivo 
+
 -------------------------------------------------------------------------------------------------------------------------
 
 ** Hyperparameters: Epochs, Minibatches, Horizon
