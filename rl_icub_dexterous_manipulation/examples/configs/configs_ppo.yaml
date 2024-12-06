@@ -15,7 +15,7 @@ n_steps: 9728
 learning_rate: 0.0002
 batch_size: 512
 n_epochs: 10
-gamma: 0.996
+gamma: 0.9
 gae_lambda: 0.997
 clip_range: 0.1
 ent_coef: 0.01
