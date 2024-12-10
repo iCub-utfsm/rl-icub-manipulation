@@ -155,6 +155,13 @@ class ICubEnv(gym.Env):
         self.task = composer.NullTask(self.world_entity)
         self.env = composer.Environment(self.task)
 
+        # TODO: To draw a ghost
+        self.data2 = self.env.physics.data.copy()
+        self.vopt2 = mujoco.MjvOption()
+        self.vopt2.flags[mujoco.mjtVisFlag.mjVIS_TRANSPARENT] = True  # Transparent.
+        self.catmask = mujoco.mjtCatBit.mjCAT_DYNAMIC
+        self.pert = mujoco.MjvPerturb()  # Empty MjvPerturb object
+
         # For visualization
         self._ngeom = self.env.physics.model.ngeom
 

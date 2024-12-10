@@ -118,17 +118,27 @@ class ICubEnvRefineGrasp(ICubEnv):
             mujoco.mjv_initGeom(scene.geoms[scene.ngeom-1],
                                 mujoco.mjtGeom.mjGEOM_SPHERE, radius,
                                 pos, mat, rgba.astype(np.float32))
+            
+            # TODO: To draw a ghost
+            # # Copy qpos to data2, move the humanoid sideways, call mj_forward.
+            # self.data2.qpos[:] = physics.data.qpos
+            # self.data2.qpos[0] += 1
+            # self.data2.qpos[1] += 1
+            # self.env.physics.forward() # mujoco.mj_forward(physics.model.ptr, self.data2.ptr)
+
+            # # Call mjv_addGeoms to add the ghost humanoid to the scene.
+            # mujoco.mjv_addGeoms(physics.model.ptr, self.data2.ptr, self.vopt2, self.pert, self.catmask, scene)
 
 
-    def step_cartsolv(self):
+    def step_cartsolv(self, current_step, total_num_steps):
         # target = self.init_icub_act_after_superquadrics.copy()
-        num_steps_initial_movement = 100
+        # num_steps_initial_movement = 100
         # initial_qpos = self.env.physics.data.qpos[:len(self.joint_ids_icub)].copy()
         # for i in range(num_steps_initial_movement):
         qpos_i = self.go_to(self.initial_qpos,
                             self.qpos_sol_final_qpos[:len(self.joint_ids_icub)],
-                            self.steps, #i,
-                            num_steps_initial_movement)
+                            current_step, #self.steps, #i,
+                            total_num_steps) #num_steps_initial_movement
         for actuator_id, actuator_dict in enumerate(self.actuators_dict):
             if actuator_id in self.actuators_to_control_ik_ids:
                 self.target[actuator_id] = 0.0
@@ -192,10 +202,10 @@ class ICubEnvRefineGrasp(ICubEnv):
                 # 'Joint_acc': joints_acc,
                 # 'Joint_torques': joints_torque
                 'reward': reward,
-                'eef_pose': observation['cartesian'],
-                'obj_pose': np.concatenate(
-                                (self.superq_pose['position'], 
-                                Quaternion(self.superq_pose['quaternion']).yaw_pitch_roll)),
+                # 'eef_pose': observation['cartesian'],
+                # 'obj_pose': np.concatenate(
+                #                 (self.superq_pose['position'], 
+                #                 Quaternion(self.superq_pose['quaternion']).yaw_pitch_roll)),
                 }
         terminated = done_eef_goal
         truncated = done_timesteps
