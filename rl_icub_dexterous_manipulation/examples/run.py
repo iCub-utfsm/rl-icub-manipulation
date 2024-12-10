@@ -1,4 +1,4 @@
-
+import time
 import os
 import yaml
 import cv2
@@ -222,6 +222,28 @@ def main(_):
     images = []
     # Evaluate the agent
     episode_reward = 0
+
+    # Medicion de tiempos de control
+    start_time = time.time()
+    time_list = []
+
+    # Agrega unos pasos de tiempo sin hacer nada
+    for _ in range(100):
+        action = np.zeros(len(env.action_space.low), dtype=np.float32)
+        obs, reward, terminated, truncated, info = env.step(action)
+        time_list.append(time.time()-start_time)
+
+        imgs = env.render()
+        # print(f'{info}')
+        if FLAGS.record_video:
+            images.append(imgs)
+        episode_reward += reward
+        
+        temp_df = pd.concat([pd.DataFrame([info]), pd.DataFrame([obs])], axis=1)
+        df = pd.concat([df, temp_df], ignore_index=True)
+
+
+    current_step = 0
     while True:
         
         if FLAGS.model_root:
@@ -229,21 +251,27 @@ def main(_):
             obs, reward, terminated, truncated, info = env.step(action)
         else:
             if FLAGS.use_cartsolv:
-                obs, reward, terminated, truncated, info = env.step_cartsolv()
+                obs, reward, terminated, truncated, info = env.step_cartsolv(current_step, total_num_steps=100)
+                current_step +=1
             else:
                 action = env.action_space.sample()
                 obs, reward, terminated, truncated, info = env.step(action)
 
+        time_list.append(time.time()-start_time)
+
         imgs = env.render()
-        print(f'{info}')
+        # print(f'{info}')
         if FLAGS.record_video:
             images.append(imgs)
         episode_reward += reward
         
-        df = pd.concat([df, pd.DataFrame([info])], ignore_index=True)
-        
+        temp_df = pd.concat([pd.DataFrame([info]), pd.DataFrame([obs])], axis=1)
+        df = pd.concat([df, temp_df], ignore_index=True)
         if terminated or truncated:
             break
+
+    df = df.assign(timestep=time_list)
+
     if FLAGS.record_video:
         now = datetime.now()
 
@@ -259,20 +287,9 @@ def main(_):
                 writer.write(imgs[i][:, :, ::-1])
             writer.release()
             
-            df.plot(x='Steps', y='reward')
-            plt.xlabel('Steps')
-            plt.ylabel('Reward')
-            plt.savefig(FLAGS.eval_dir + "/ep_rew_{}.pdf".format(now.strftime("%Y-%m-%d_%H-%M-%S")))
+            df.to_json(FLAGS.eval_dir + '/df_{}.json'.format(now.strftime("%Y-%m-%d_%H-%M-%S")), orient='records')
 
     print("Reward:", episode_reward)
-
-    # print(df.head())
-    # df.plot(x='Steps', y='reward', color='green')
-    # plt.xlabel('Steps')
-    # plt.ylabel('Reward')
-    # if not os.path.exists(os.path.dirname(FLAGS.eval_dir)+"/imgs/"):
-    #             os.makedirs(os.path.dirname(FLAGS.eval_dir)+"/imgs/")
-    # plt.savefig(os.path.dirname(FLAGS.eval_dir)+"/imgs/ep_rew.pdf" )
 
 if __name__ == '__main__':
     app.run(main)
