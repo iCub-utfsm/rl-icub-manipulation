@@ -1,6 +1,7 @@
 import numpy as np
 from rl_icub_dexterous_manipulation.envs.icub_visuomanip_refine_grasp_goto import ICubEnvRefineGrasp
 
+import time
 
 DEFAULT_TASKPARAMS = dict(
     model_path="../models/icub_visuomanip_ikin_limits.xml",
@@ -35,7 +36,7 @@ DEFAULT_TASKPARAMS = dict(
     objects_positions=[np.array([-0.3, 0.05, 1.009],dtype=np.float32),],
     objects_quaternions=[np.array([1.0,0,0,0],dtype=np.float32),],
     randomly_rotate_object_z_axis=False,
-    randomly_move_objects=False,
+    randomly_move_objects=True,
     random_initial_pos=not True,
     training_components=["torso_pitch","torso_yaw","torso_roll","r_arm"],
     ik_components=["torso_pitch","torso_yaw","torso_roll","r_arm"],
@@ -90,10 +91,19 @@ tiempos = np.arange(0, duracion, paso_tiempo)
 # senal = np.zeros_like(tiempos)
 ####
 
+# Checkeando tiempos de simulacon y control
+start_time = time.time()
+delta_t_list = []
+
+# env.env.task.set_timesteps(control_timestep=0.005, physics_timestep=0.00125) # Aunque se setea, no causa efecto en el resultado
+# print(f"env.physics_timestep: {env.env.task.physics_timestep}") 
+# print(f"env.control_timestep: {env.env.control_timestep()}") # En realidad es este tiempo x 5
+
 images = []
 obs, _ = env.reset()
 # Evaluate the agent
 episode_reward = 0
+current_step = 0
 while True:
     
     # obs, reward, terminated, truncated, info = env.step_cartsolv()
@@ -110,7 +120,6 @@ while True:
     # action = env.target[env.actuators_to_control_ids] # Este valor es al que tiene que llegar la actuacion
     # action = env.initial_qpos[env.actuators_to_control_ids]
     
-    # print(env.env.control_timestep()) # En realidad es este tiempo x 5
     # action[0] += senal
     # action[1] += senal
     # action[2] += senal
@@ -120,12 +129,26 @@ while True:
     # action[6] += senal
     # action[7] += senal
     # action[8] += senal
-    obs, reward, terminated, truncated, info = env.step(action)
+    t1 = time.time()
+    # obs, reward, terminated, truncated, info = env.step(action)
+    obs, reward, terminated, truncated, info = env.step_cartsolv(current_step, total_num_steps=100)
+    current_step += 1
+    t2 = time.time()
 
+    delta_t_list.append(t2-t1)
+    
     imgs = env.render()
-    print(f'{info}')
+    # print(f'{info}')
 
     episode_reward += reward
     
     if terminated or truncated:
         break
+
+# Marcar el final del entrenamiento
+end_time = time.time()
+# Calcular el tiempo transcurrido en segundos
+elapsed_time_seconds = end_time - start_time
+delta_t = np.array(delta_t_list)
+print(f"Tiempo de control: {np.mean(delta_t)} +-{np.std(delta_t)} [s]")
+print(f"Duracion del episodio: {elapsed_time_seconds} [s]")
