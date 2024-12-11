@@ -104,6 +104,7 @@ obs, _ = env.reset()
 # Evaluate the agent
 episode_reward = 0
 current_step = 0
+post_step = 0
 while True:
     
     # obs, reward, terminated, truncated, info = env.step_cartsolv()
@@ -143,7 +144,9 @@ while True:
     episode_reward += reward
     
     if terminated or truncated:
-        break
+        post_step += 1
+        if post_step > 50:
+            break
 
 # Marcar el final del entrenamiento
 end_time = time.time()

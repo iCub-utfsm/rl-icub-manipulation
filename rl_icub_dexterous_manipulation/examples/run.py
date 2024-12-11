@@ -222,6 +222,7 @@ def main(_):
     images = []
     # Evaluate the agent
     episode_reward = 0
+    post_step = 0
 
     # Medicion de tiempos de control
     start_time = time.time()
@@ -268,7 +269,9 @@ def main(_):
         temp_df = pd.concat([pd.DataFrame([info]), pd.DataFrame([obs])], axis=1)
         df = pd.concat([df, temp_df], ignore_index=True)
         if terminated or truncated:
-            break
+            post_step += 1
+            if post_step > 50:
+                break
 
     df = df.assign(timestep=time_list)
 
