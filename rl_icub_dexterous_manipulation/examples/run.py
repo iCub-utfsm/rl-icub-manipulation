@@ -11,8 +11,6 @@ from rl_icub_dexterous_manipulation.sb3 import utils
 from rl_icub_dexterous_manipulation.envs.icub_visuomanip_refine_grasp_goto import ICubEnvRefineGrasp
 
 from datetime import datetime
-import seaborn as sns
-sns.set_theme()
 
 FLAGS = flags.FLAGS
 
