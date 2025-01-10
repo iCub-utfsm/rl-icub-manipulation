@@ -105,20 +105,72 @@ class ICubEnvRefineGrasp(ICubEnv):
     def make_env_constructor():
         return lambda *args, **kwargs: ICubEnvRefineGrasp(*args, **kwargs)
 
+    def _draw_circle(self,scene,pos,mat):
+        scene.ngeom += 1  # increment ngeom
+        rgba = np.array((0.5,0.5,0.5,0.3),dtype=np.float32)
+        radius = np.ones(3) * self.goal_xpos_tolerance
+        
+        # initialise a new capsule, add it to the scene using mjv_connector
+        mujoco.mjv_initGeom(scene.geoms[scene.ngeom-1],
+                            mujoco.mjtGeom.mjGEOM_SPHERE, radius,
+                            pos, mat, rgba.astype(np.float32))
+
+    def _draw_frame(self,scene,pos,mat):
+        # Scaling factor for the arrows
+        arrow_length = 0.1
+        radius = 0.005
+
+        xmat = mat.reshape(3,3)
+        # Calculate arrow endpoints
+        x_axis = pos + arrow_length * xmat[:, 0]
+        y_axis = pos + arrow_length * xmat[:, 1]
+        z_axis = pos + arrow_length * xmat[:, 2]
+
+        # Draw x-axis
+        scene.ngeom += 1
+        mujoco.mjv_initGeom(scene.geoms[scene.ngeom-1],
+                                mujoco.mjtGeom.mjGEOM_CYLINDER, np.zeros(3),
+                                np.zeros(3), np.zeros(9), np.array((1,0,0,0.5) ,dtype=np.float32))
+        mujoco.mjv_makeConnector(scene.geoms[scene.ngeom-1],
+                    mujoco.mjtGeom.mjGEOM_CYLINDER, radius,
+                    pos[0],pos[1],pos[2],
+                    x_axis[0], x_axis[1], x_axis[2])
+        
+        # Draw y-axis
+        scene.ngeom += 1
+        mujoco.mjv_initGeom(scene.geoms[scene.ngeom-1],
+                                mujoco.mjtGeom.mjGEOM_CYLINDER, np.zeros(3),
+                                np.zeros(3), np.zeros(9), np.array((0,1,0,0.5) ,dtype=np.float32))
+        mujoco.mjv_makeConnector(scene.geoms[scene.ngeom-1],
+                    mujoco.mjtGeom.mjGEOM_CYLINDER, radius,
+                    pos[0],pos[1],pos[2], 
+                    y_axis[0],y_axis[1],y_axis[2])
+        
+        # Draw z-axis
+        scene.ngeom += 1
+        mujoco.mjv_initGeom(scene.geoms[scene.ngeom-1],
+                                mujoco.mjtGeom.mjGEOM_CYLINDER, np.zeros(3),
+                                np.zeros(3), np.zeros(9), np.array((0,0,1,0.5) ,dtype=np.float32))
+        mujoco.mjv_makeConnector(scene.geoms[scene.ngeom-1],
+                    mujoco.mjtGeom.mjGEOM_CYLINDER, radius,
+                    pos[0],pos[1],pos[2], 
+                    z_axis[0],z_axis[1],z_axis[2])
+        
     def _scene_callback(self, physics, scene):
-            rgba = np.array((1,0,0,0.3),dtype=np.float32)
-            radius = np.ones(3) * self.goal_xpos_tolerance
             pos = self.init_qpos[self.joint_ids_objects[0:3]] #self.superq_pose['position']
-            mat = np.array(Quaternion(self.init_qpos[self.joint_ids_objects[3:4]]).rotation_matrix).flatten() 
+            mat = np.array(Quaternion(self.init_qpos[self.joint_ids_objects[3:]]).rotation_matrix).flatten() 
 
             if scene.ngeom >= scene.maxgeom:
                 return
-            scene.ngeom += 1  # increment ngeom
-            # initialise a new capsule, add it to the scene using mjv_connector
-            mujoco.mjv_initGeom(scene.geoms[scene.ngeom-1],
-                                mujoco.mjtGeom.mjGEOM_SPHERE, radius,
-                                pos, mat, rgba.astype(np.float32))
+
+            self._draw_circle(scene,pos,mat)
             
+            self._draw_frame(scene,pos,mat)
+            
+            eef_pos = self.env.physics.named.data.xpos[self.eef_name]
+            eef_mat = self.env.physics.named.data.xmat[self.eef_name]
+            self._draw_frame(scene, eef_pos, eef_mat)
+
             # TODO: To draw a ghost
             # # Copy qpos to data2, move the humanoid sideways, call mj_forward.
             # self.data2.qpos[:] = physics.data.qpos
@@ -821,6 +873,58 @@ class ICubEnvRefineGrasp(ICubEnv):
                 # Initial reset, just need to return the observation
                 break
         return self._get_obs()
+    
+    def update_object(self, obj_pos):
+        current_state = self.get_state()
+        obj_state = current_state[self.joint_ids_objects]
+        # Move object to new position
+        if obj_pos == 1:
+            obj_state[:3] = np.array([-0.3, 0.05, 1.309],dtype=np.float32)
+        elif obj_pos == 2:
+            obj_state[:3] = np.array([-0.3, -0.15, 1.159],dtype=np.float32)
+        elif obj_pos == 3:
+            obj_state[:3] = np.array([-0.3, 0.15, 1.159],dtype=np.float32)
+        elif obj_pos == 4:
+            obj_state[:3] = np.array([-0.3, 0.05, 1.009],dtype=np.float32)
+        else:
+            for i in range(int(len(self.init_qpos[self.joint_ids_objects]) / 7)):
+                obj_state[0] = np.random.uniform(-0.4, -0.3)
+                obj_state[1] = np.random.uniform(-0.1, 0.1)
+                obj_state[2] = np.random.uniform(1.1, 1.3)
+                
+        # Update variables who control joint movement
+        current_state[self.joint_ids_objects] = obj_state
+        self.set_state(current_state)
+        self.env.physics.forward()
+
+        self.init_qpos[self.joint_ids_icub] = current_state[self.joint_ids_icub]
+        self.init_qpos[self.joint_ids_objects] = obj_state
+        
+        self.superq_pose["position"] = current_state[self.joint_ids_objects[:3]]
+        self.superq_pose["quaternion"] = current_state[self.joint_ids_objects[3:]]
+
+        def compute_ikin():
+            target_ik_pyquaternion = Quaternion(self.superq_pose['quaternion'])
+            target_ik_axis_angle = np.append(target_ik_pyquaternion.axis, target_ik_pyquaternion.angle)
+            ik_sol, solved = self.ik_ikin.solve_ik(eef_pos=self.superq_pose['position'],
+                                                    eef_axis_angle=target_ik_axis_angle,
+                                                    current_qpos=self.env.physics.named.data.qpos,
+                                                    joints_to_control_ik_ids=self.joints_to_control_ik_ids,
+                                                    on_step=False)
+            if solved:
+                qpos_sol_final_qpos = np.zeros(len(self.joint_ids_icub))
+                qpos_sol_final_qpos[self.joints_to_control_ik_ids] = ik_sol
+
+                self.qpos_sol_final_qpos = qpos_sol_final_qpos
+                self.update_init_qpos_act_after_superquadrics(qpos_sol_final_qpos)
+                self.target = self.init_icub_act_after_superquadrics.copy()
+                # num_steps_initial_movement = 50
+                self.initial_qpos = self.env.physics.data.qpos[:len(self.joint_ids_icub)].copy()
+            else:
+                print("Solution not found.")
+        
+        compute_ikin()
+
 
     def update_init_qpos_act_from_current_state(self, current_state):
         for actuator_id, actuator_dict in enumerate(self.actuators_dict):
