@@ -877,15 +877,29 @@ class ICubEnvRefineGrasp(ICubEnv):
     def update_object(self, obj_pos):
         current_state = self.get_state()
         obj_state = current_state[self.joint_ids_objects]
+
+        qy = Quaternion(axis=[0, 0, 1], degrees=180)
+        qp = Quaternion(axis=[0, 1, 0], degrees=0)
+        qr = Quaternion(axis=[1, 0, 0], degrees=90)
+        pyquaternion = qr * qp * qy
+        print(f'{pyquaternion=}')
         # Move object to new position
         if obj_pos == 1:
             obj_state[:3] = np.array([-0.3, 0.05, 1.309],dtype=np.float32)
+            obj_state[3:] = pyquaternion.q
+
         elif obj_pos == 2:
             obj_state[:3] = np.array([-0.3, -0.15, 1.159],dtype=np.float32)
+            obj_state[3:] = pyquaternion.q
+
         elif obj_pos == 3:
             obj_state[:3] = np.array([-0.3, 0.15, 1.159],dtype=np.float32)
+            obj_state[3:] = pyquaternion.q
+
         elif obj_pos == 4:
             obj_state[:3] = np.array([-0.3, 0.05, 1.009],dtype=np.float32)
+            obj_state[3:] = pyquaternion.q
+
         else:
             for i in range(int(len(self.init_qpos[self.joint_ids_objects]) / 7)):
                 obj_state[0] = np.random.uniform(-0.4, -0.3)
