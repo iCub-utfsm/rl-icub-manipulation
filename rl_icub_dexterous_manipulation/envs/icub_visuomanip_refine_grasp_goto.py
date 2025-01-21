@@ -882,15 +882,25 @@ class ICubEnvRefineGrasp(ICubEnv):
         qp = Quaternion(axis=[0, 1, 0], degrees=0)
         qr = Quaternion(axis=[1, 0, 0], degrees=90)
         pyquaternion = qr * qp * qy
-        print(f'{pyquaternion=}')
+
         # Move object to new position
         if obj_pos == 1:
             obj_state[:3] = np.array([-0.3, 0.05, 1.309],dtype=np.float32)
             obj_state[3:] = pyquaternion.q
+            
+            # obj_state[:3] = np.array([-0.2, 0.15, 1.309],dtype=np.float32)
+            # obj_state[3:] = np.array([1, 0, 0, 0],dtype=np.float32)
 
         elif obj_pos == 2:
             obj_state[:3] = np.array([-0.3, -0.15, 1.159],dtype=np.float32)
             obj_state[3:] = pyquaternion.q
+
+            # obj_state[:3] = np.array([-0.2, -0.15, 1.309],dtype=np.float32)
+            # qy = Quaternion(axis=[0, 0, 1], degrees=0)
+            # qp = Quaternion(axis=[0, 1, 0], degrees=0)
+            # qr = Quaternion(axis=[1, 0, 0], degrees=90)
+            # pyquaternion = qr * qp * qy
+            # obj_state[3:] = pyquaternion.q
 
         elif obj_pos == 3:
             obj_state[:3] = np.array([-0.3, 0.15, 1.159],dtype=np.float32)
