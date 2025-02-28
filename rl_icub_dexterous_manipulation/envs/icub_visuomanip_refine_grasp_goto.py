@@ -452,7 +452,7 @@ class ICubEnvRefineGrasp(ICubEnv):
                             done_goal_eef,
                             done_timesteps)
         
-        done = done_goal_joints or done_timesteps or done_goal_eef
+        done = done_timesteps or done_goal_eef # or done_goal_joints
         self.prev_action = current_action
         self.prev_actuation = target
         
@@ -483,6 +483,22 @@ class ICubEnvRefineGrasp(ICubEnv):
         #         self.lfd_steps <= self.learning_from_demonstration_max_steps:
         #     self.lfd_steps -= self.steps
         
+        ################ Update object's pose
+        # if done_goal_eef or done_timesteps:
+        #     self.post_step += 1
+        #     done_goal_eef = False
+        #     if self.post_step > 1:
+        #         self.post_step = 0
+        #         self.update_object(self.obj_pos)
+        #         self.steps = 0
+        #         if self.obj_pos < 4:
+        #             self.obj_pos += 1
+        #         else:
+        #             self.obj_pos = 1
+        #             done_goal_eef = True
+        #         print(f'{self.obj_pos=}, {done_goal_eef=}, {done_timesteps=}')
+        ################
+
         ### Adaptation to work with gymnasium API
         terminated = done_goal_eef # or done_goal_joints 
         truncated = done_timesteps
@@ -615,6 +631,9 @@ class ICubEnvRefineGrasp(ICubEnv):
     #         return self.lifted_object() and self.number_of_contacts == 5
 
     def reset_model(self):
+        self.obj_pos = 1
+        self.post_step = 0
+        
         grasp_found = False
         while not grasp_found:
             super().reset_model()

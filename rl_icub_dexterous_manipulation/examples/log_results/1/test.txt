@@ -110,3 +110,10 @@
 
 ** Other Hyperparameters: Ending Condition and Learning Rate
     (lr) Learning Rate Range: 0.003 to 5e-6  
+
+-------------------------------------------------------------------------------------------------------------------------
+
+2025-02-28
+    - test 18: entrenamiento con objetivo fijo y correccion de orientacion, recompensas v2 (sin recompensa negativa por end_timesteps)
+    - Se modifica configs_ppo.yaml y configs_run.yaml fijandose el punto objetivo en pos=[-0.3, 0.05, 1.009] ori=[0 0 -0.707 0.707] (antes ori=[1 0 0 0])
+    - Notar que recompensas v2 no bonifica por corregir el error de orientacion, solo el error de posicion.

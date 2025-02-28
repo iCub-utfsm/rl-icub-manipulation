@@ -40,7 +40,7 @@ flags.DEFINE_boolean('reward_dist_original_superq_grasp_position', False, 'Add a
 flags.DEFINE_boolean('goal_reached_only_with_lift_refine_grasp', False, 'Successful episode only with object lifted in grasp refinement task.')
 flags.DEFINE_boolean('high_negative_reward_approach_failures', False, 'Strongly penalize moved object in the approach phase in the grasp refinement task.')
 flags.DEFINE_float('joints_margin', 0.0, 'Set the margin from joints limits for joints control.')
-flags.DEFINE_string('eval_dir', 'logs_eval', 'Set the directory where evaluation files are saved. Default directory is logs_eval.')
+flags.DEFINE_string('eval_dir', None, 'Set the directory where evaluation files are saved.')
 flags.DEFINE_string('pretrained_model_dir', None, 'Set the directory where the requested pretrained model is saved.')
 flags.DEFINE_multi_string('icub_observation_space', ['joints'], 'Set the observation space: joints will use as observation space joints positions, camera will use information from the camera specified with the argument obs_camera, features the features extracted by the camera specified with the argument obs_camera, flare a combination of the features with information at the previous timesteps, pretrained_output the output of the pre-trained policy stored in pretrained_model_dir, grasp_type an integer value that describes the grasp type based on the initial grasp pose and touch the tactile information. If you pass multiple argument, you will use a MultiInputPolicy.')
 flags.DEFINE_multi_string('icub_action_space', ['joints'], 'TODO')
@@ -273,22 +273,22 @@ def main(_):
 
     df = df.assign(timestep=time_list)
 
-    if FLAGS.record_video:
-        now = datetime.now()
-
-        print('Recording video.')
-        for i in range(len(FLAGS.render_cameras)):
-            fourcc = cv2.VideoWriter_fourcc('m', 'p', '4', 'v')
-            if not os.path.exists(FLAGS.eval_dir):
-                os.makedirs(FLAGS.eval_dir)
-            writer = cv2.VideoWriter(FLAGS.eval_dir + '/{}_{}.mp4'.format(FLAGS.render_cameras[i],
-                                                                          now.strftime("%Y-%m-%d_%H-%M-%S")), 
-                                                                          fourcc, 30, (640, 480))
-            for num_img, imgs in enumerate(images):
-                writer.write(imgs[i][:, :, ::-1])
-            writer.release()
-            
-            df.to_json(FLAGS.eval_dir + '/df_{}.json'.format(now.strftime("%Y-%m-%d_%H-%M-%S")), orient='records')
+    if FLAGS.eval_dir:
+        if FLAGS.record_video:
+            now = datetime.now()
+            print('Recording video.')
+            for i in range(len(FLAGS.render_cameras)):
+                fourcc = cv2.VideoWriter_fourcc('m', 'p', '4', 'v')
+                if not os.path.exists(FLAGS.eval_dir):
+                    os.makedirs(FLAGS.eval_dir)
+                writer = cv2.VideoWriter(FLAGS.eval_dir + '/{}_{}.mp4'.format(FLAGS.render_cameras[i],
+                                                                                now.strftime("%Y-%m-%d_%H-%M-%S")), 
+                                                                                fourcc, 30, (640, 480))
+                for num_img, imgs in enumerate(images):
+                    writer.write(imgs[i][:, :, ::-1])
+                writer.release()
+                
+        df.to_json(FLAGS.eval_dir + '/df_{}.json'.format(now.strftime("%Y-%m-%d_%H-%M-%S")), orient='records')
 
     print("Reward:", episode_reward)
 

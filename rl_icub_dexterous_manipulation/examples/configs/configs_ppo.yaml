@@ -57,9 +57,9 @@ objects_positions:
   - 0.05
   - 1.009
 objects_quaternions:
-  - 1.0
   - 0
   - 0
+  - 1
   - 0
 feature_extractor_model_name: "MAE"
 track_object: True

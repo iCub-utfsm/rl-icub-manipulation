@@ -34,7 +34,7 @@ DEFAULT_TASKPARAMS = dict(
     objects=["005_tomato_soup_can",],
     use_table=False,
     objects_positions=[np.array([-0.3, 0.05, 1.009],dtype=np.float32),],
-    objects_quaternions=[np.array([1.0,0,0,0],dtype=np.float32),],
+    objects_quaternions=[np.array([0,0,-0.707,0.707],dtype=np.float32),],
     randomly_rotate_object_z_axis=False,
     randomly_move_objects=True,
     random_initial_pos=not True,
