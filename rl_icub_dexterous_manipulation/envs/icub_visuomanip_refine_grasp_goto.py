@@ -447,10 +447,12 @@ class ICubEnvRefineGrasp(ICubEnv):
         #                           observation['joints'], self.qpos_sol_final_qpos[self.joints_to_control_ik_ids],
         #                           self.env.physics.named.data.xpos[self.eef_name], self.superq_pose['position'] ,
         #                           done_goal_joints, done_goal_eef, done_timesteps)
-        reward = self._get_reward_v2(current_action, self.prev_action,
-                            self.env.physics.named.data.xpos[self.eef_name], self.superq_pose['position'],
-                            done_goal_eef,
-                            done_timesteps)
+        # reward = self._get_reward_v2(current_action, self.prev_action,
+        #                     self.env.physics.named.data.xpos[self.eef_name], self.superq_pose['position'],
+        #                     done_goal_eef,
+        #                     done_timesteps)
+
+        reward = self._get_reward_v3(observation['cartesian'], observation['object_pose'], dw=0.75, ow=0.25)
         
         done = done_timesteps or done_goal_eef # or done_goal_joints
         self.prev_action = current_action
@@ -550,6 +552,19 @@ class ICubEnvRefineGrasp(ICubEnv):
         #     return self.reward_end_timesteps
 
         return reward
+    
+    def pose_error(self, pose1, pose2):
+        """Calculates pose error (distance and orientation) between two poses.
+           Pose is in a form [x, y, z, yaw, pitch, roll]."""
+        # Calculate distance error
+        dist_err = np.linalg.norm(pose2[:3] - pose1[:3])
+        # handle angle wrapping (e.g., yaw difference exceeding pi or -pi)
+        orient_err = ((pose2[3:] - pose1[3:] + np.pi) % (2 * np.pi)) - np.pi
+        return dist_err, orient_err
+    
+    def _get_reward_v3(self, current_pose, target_pose, dw=0.75, ow=0.25):
+        dist_err, orient_err = self.pose_error(current_pose, target_pose)
+        return -dw * dist_err - ow * np.linalg.norm(orient_err)
 
     # def _get_reward(self, done_limits, done_goal, done_timesteps, done_moved_object, done_z_pos, done_ik=None):
     #     if done_limits:

@@ -79,6 +79,6 @@ cartesian_components:
 #   - 2048
 distanced_superq_grasp_pose: False #True
 ik_solver: "ikin"
-randomly_move_objects: True
+randomly_move_objects: False
 limit_torso_pitch_ikin: True
 approach_in_reset_model: True
